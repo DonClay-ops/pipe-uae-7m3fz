@@ -260,6 +260,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <div class="field"><label for="eProduct">Product</label><select id="eProduct"></select></div>
     <div class="field"><label for="eEng">Engagement type</label><select id="eEng"></select></div>
     <div class="field"><label for="eStage">Stage</label><select id="eStage"></select></div>
+            <div class="field" id="lostReasonRow"><label for="eLostReason">Lost reason</label><select id="eLostReason"><option value="">--</option><option>Budget</option><option>Competitor</option><option>Went quiet</option><option>Not interested</option><option>Can't deliver</option></select></div>
     <div class="field"><label for="eBudget">Budget confirmed</label><select id="eBudget"></select></div>
     <div class="field"><label for="eWaiting">Whose move</label><select id="eWaiting"></select></div>
     <div class="field"><label for="eValue">Est. value (AED)</label><input id="eValue" type="number" min="0" step="1000"></div>
@@ -284,10 +285,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 <script>
 "use strict";
 /* ================= constants ================= */
-const STAGES = ["Lead – New","Lead – Contacted","Opp – 10 Discover","Opp – 30 Demo","Opp – 50 Propose","Opp – 60 Evaluation","Opp – 70 Shortlisted","Opp – 80 Negotiate","Opp – 90 Commit","Won","Lost – Budget","Lost – Competitor","Lost – No Longer Interested","Disqualified / Cannot Contact","Campaign Candidate"];
-const CLOSED_STAGES = new Set(STAGES.slice(10));
-const LATE_STAGES = new Set(["Opp – 50 Propose","Opp – 60 Evaluation","Opp – 70 Shortlisted","Opp – 80 Negotiate","Opp – 90 Commit"]);
-const PRODUCTS = ["","Dynamics 365 Business Central","Dynamics 365 F&O","Dynamics 365 CRM","Power BI","Power Platform","Microsoft SharePoint","M 365","Microsoft Azure","AI Solutions","ISV-HR-BC","ISV-HR-F&O","ISV-PMS-BC","ISV-PMS-F&O","E-Invoicing","Zatca","Dynamics GP","Dynamics AX","Dynamics NAV","Migration","Third Party"];
+const STAGES = ["New","Qualifying","Demo","Proposal","Negotiation","Won","Lost","Nurture"];
+const CLOSED_STAGES = new Set(["Won"]);
+const LATE_STAGES = new Set(["Proposal","Negotiation"]);
+const PRODUCTS = ["","Dynamics 365 Business Central","Dynamics 365 F&O","Dynamics 365 CRM","Power BI","Power Platform","Microsoft SharePoint","M 365","Microsoft Azure","Microsoft Copilot","AI Solutions","ISV-HR-BC","ISV-HR-F&O","ISV-PMS-BC","ISV-PMS-F&O","E-Invoicing","Zatca","Dynamics GP","Dynamics AX","Dynamics NAV","Migration","Third Party"];
 const ENGAGEMENTS = ["","New Implementation","Upgrade / Migration","E-Invoicing Compliance","Support / SLA","Change Request","Licensing","Security","Training"];
 const SOURCES = ["","Info Email","Incoming Call","Existing Client","Website","Microsoft Referral","Self Generated","Partner","Marketing Campaign","WhatsApp","Upselling Opportunities","Gitex","Tawk","App Source","BNI Referral","Other"];
 const CAMPAIGNS = ["","UAE e-Invoicing","SLA Renewal","Copilot / AI","Power BI Analytics"];
@@ -331,7 +332,7 @@ function urgency(r){
     const d = daysSince(r.phase_since);
     return {cls:"u-money", badge:["b-money","💰 "+r.delivery_phase], why:`payment to chase${d!=null?" · "+d+"d in phase":""}`, score:0};
   }
-  const isLead = r.stage==="Lead – New" || r.stage==="Lead – Contacted";
+  const isLead = r.stage==="New" || r.stage==="Qualifying";
   if(r.next_step_due && r.next_step_due < todayStr())
     return {cls:"u-red", badge:["b-red","OVERDUE"], why:`next step was due ${fmtD(r.next_step_due)}`, score:1};
   if(isLead && !r.first_response_sent && hoursSince(r.created_at) > 24)
@@ -538,7 +539,7 @@ async function addLead(){
     est_close_date: $("aClose").value || null,
     next_step: "Review & first response", next_step_due: $("aNextDue").value || null,
     notes: $("aNotes").value.trim() || null,
-    stage: "Lead – New", waiting_on: "Me", budget_confirmed: "Unknown",
+    stage: "New", waiting_on: "Me", budget_confirmed: "Unknown",
     last_touch: new Date().toISOString()
   };
   const d = await dbInsert(rec);
@@ -552,7 +553,7 @@ function openDrawer(id){
   $("dTitle").textContent = r.company;
   $("eCompany").value=r.company; $("eEmail").value=r.contact_email||""; $("eContact").value=r.contact_name||"";
   $("eProduct").value=r.product||""; $("eEng").value=r.engagement_type||"";
-  $("eStage").value=r.stage; $("eBudget").value=r.budget_confirmed||"Unknown"; $("eWaiting").value=r.waiting_on;
+  $("eStage").value=r.stage; $("eBudget").value=r.budget_confirmed||"Unknown"; $("eWaiting").value=r.waiting_on; $("#eLostReason").value=r.lost_reason||"";
   $("eValue").value=r.est_value_aed||""; $("eClose").value=r.est_close_date||"";
   $("eNextDue").value=r.next_step_due||""; $("eSource").value=r.lead_source||""; $("eCampaign").value=r.campaign||"";
   $("ePhase").value=r.delivery_phase||""; $("eNext").value=r.next_step||""; $("eNotes").value=r.notes||"";
@@ -577,7 +578,8 @@ async function saveEdit(){
     est_close_date: $("eClose").value||null,
     next_step: $("eNext").value.trim()||null, next_step_due: $("eNextDue").value||null,
     lead_source: $("eSource").value||null, campaign: $("eCampaign").value||null,
-    delivery_phase: $("ePhase").value||null, notes: $("eNotes").value.trim()||null
+    delivery_phase: $("ePhase").value||null, notes: $("eNotes").value.trim()||null,
+      lost_reason: newStage==="Lost" ? $("#eLostReason").value||null : null
   };
   // Won handoff: open the delivery track automatically
   if(newStage==="Won" && r.stage!=="Won" && !patch.delivery_phase){
