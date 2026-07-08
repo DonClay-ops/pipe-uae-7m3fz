@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>My Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#E9EDEF; --surface:#FFFFFF; --ink:#1B2A33; --muted:#5F6E77;
+  --line:#D4DCE0; --soft:#F3F6F7;
+  --go:#0E7C66; --go-dark:#0A5F4F;
+  --red:#C6362B; --red-bg:#FBEDEB;
+  --amber:#B97F0E; --amber-bg:#FBF3E2;
+  --blue:#4A6FA5; --blue-bg:#EDF2F9;
+  --green-bg:#E9F4F1;
+  --radius:10px;
+  --font-display:'Barlow Condensed',sans-serif;
+  --font-body:'IBM Plex Sans',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45}
+button{font-family:inherit;cursor:pointer;border:none;background:none;font-size:inherit;color:inherit}
+input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--go);outline-offset:1px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.field{margin-bottom:14px}
+h1,h2,h3{font-family:var(--font-display);letter-spacing:.01em}
+.mono{font-family:var(--font-mono)}
+a{color:var(--go)}
+
+/* ---------- header ---------- */
+header{position:sticky;top:0;z-index:40;background:var(--ink);color:#fff;padding:0 16px}
+.hd-top{display:flex;align-items:center;gap:12px;max-width:900px;margin:0 auto;padding:12px 0 8px}
+.hd-top h1{font-size:26px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;flex:1}
+.hd-top h1 span{color:#7BC4B3;font-weight:500}
+.chip{font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.12);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.chip b{color:#7BC4B3}
+.signout{font-size:12px;color:#B9C6CC;text-decoration:underline}
+nav{display:flex;gap:4px;max-width:900px;margin:0 auto;overflow-x:auto}
+nav button{font-family:var(--font-display);font-size:17px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#B9C6CC;padding:8px 14px 10px;border-radius:8px 8px 0 0;white-space:nowrap}
+nav button.on{background:var(--bg);color:var(--ink)}
+nav button .n{font-family:var(--font-mono);font-size:12px;margin-left:5px;color:var(--red)}
+nav button.on .n{color:var(--red)}
+
+main{max-width:900px;margin:0 auto;padding:18px 14px 90px}
+
+/* ---------- lanes & cards ---------- */
+.lane{margin-bottom:26px}
+.lane-h{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;border-bottom:2px solid var(--ink);padding-bottom:4px}
+.lane-h h2{font-size:21px;font-weight:700;text-transform:uppercase}
+.lane-h .cnt{font-family:var(--font-mono);font-size:13px;color:var(--muted)}
+.lane-h .hint{font-size:12.5px;color:var(--muted);margin-left:auto;text-align:right}
+.card{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--muted);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px}
+.card.u-money{border-left-color:var(--go)}
+.card.u-red{border-left-color:var(--red)}
+.card.u-amber{border-left-color:var(--amber)}
+.card.u-blue{border-left-color:var(--blue)}
+.card-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.card-top .co{font-weight:600;font-size:16px}
+.card-top .co:hover{text-decoration:underline;cursor:pointer}
+.card-top .val{font-family:var(--font-mono);font-size:13px;color:var(--muted);margin-left:auto}
+.badge{display:inline-block;font-family:var(--font-mono);font-size:11px;font-weight:500;border-radius:4px;padding:2px 7px}
+.b-red{background:var(--red-bg);color:var(--red)}
+.b-amber{background:var(--amber-bg);color:var(--amber)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}
+.b-money{background:var(--green-bg);color:var(--go-dark)}
+.b-grey{background:var(--soft);color:var(--muted)}
+.card-line{font-size:14px;color:var(--ink);margin-top:6px}
+.card-line .why{color:var(--muted)}
+.card-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btn{border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:600;border:1px solid var(--line);background:var(--soft)}
+.btn:hover{border-color:var(--muted)}
+.btn-go{background:var(--go);border-color:var(--go);color:#fff}
+.btn-go:hover{background:var(--go-dark)}
+.btn-ghost{background:transparent}
+.btn-danger{color:var(--red);border-color:var(--red)}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:22px;text-align:center;color:var(--muted);font-size:14px}
+
+/* inline next-step planner */
+.plan-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.plan-row input[type=text]{flex:2;min-width:160px}
+.plan-row input[type=date]{flex:1;min-width:130px}
+
+/* ---------- pipeline table ---------- */
+.filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filters .btn.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.tbl-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th{font-family:var(--font-display);font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;text-align:left;color:var(--muted);padding:10px 12px;border-bottom:2px solid var(--ink);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+tr:hover td{background:var(--soft);cursor:pointer}
+td .sub{font-size:12px;color:var(--muted)}
+.stage-grp td{background:var(--soft);font-family:var(--font-display);font-size:15px;font-weight:600;text-transform:uppercase;color:var(--muted);cursor:default}
+.totals{font-family:var(--font-mono);font-size:13px;color:var(--muted);margin-top:10px}
+
+/* ---------- forms / panels ---------- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.panel h2{font-size:20px;text-transform:uppercase;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+@media(max-width:560px){.grid2{grid-template-columns:1fr}}
+details.more{margin:6px 0 14px}
+details.more summary{cursor:pointer;color:var(--go);font-weight:600;font-size:14px}
+details.more .grid2{margin-top:12px}
+
+/* ---------- drawer ---------- */
+.overlay{position:fixed;inset:0;background:rgba(27,42,51,.45);z-index:50;display:none}
+.overlay.open{display:block}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:var(--surface);z-index:60;transform:translateX(100%);transition:transform .2s ease;overflow-y:auto;padding:18px 20px 40px;box-shadow:-8px 0 30px rgba(0,0,0,.15)}
+@media(prefers-reduced-motion:reduce){.drawer{transition:none}}
+.drawer.open{transform:translateX(0)}
+.drawer-h{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.drawer-h h2{font-size:22px;flex:1;text-transform:uppercase}
+.drawer-h .x{font-size:22px;color:var(--muted);padding:4px 10px}
+.drawer-foot{display:flex;gap:10px;margin-top:18px}
+.drawer-foot .btn{flex:0 0 auto}
+
+/* ---------- sync ---------- */
+.dropzone{border:2px dashed var(--muted);border-radius:var(--radius);background:var(--surface);padding:30px;text-align:center;color:var(--muted)}
+.dropzone.drag{border-color:var(--go);color:var(--go)}
+.map-row{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;margin-bottom:8px}
+.sync-group{margin-top:20px}
+.sync-group h3{font-size:18px;text-transform:uppercase;border-bottom:2px solid var(--ink);padding-bottom:3px;margin-bottom:8px;display:flex;gap:10px;align-items:baseline}
+.sync-group h3 .cnt{font-family:var(--font-mono);font-size:13px;color:var(--muted)}
+.sync-item{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:14px;flex-wrap:wrap}
+.sync-item .k{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.sync-item .grow{flex:1}
+
+/* ---------- misc ---------- */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:999px;padding:10px 20px;font-size:14px;z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%}
+#toast.show{opacity:1}
+.auth-wrap{max-width:380px;margin:10vh auto;padding:0 16px}
+.auth-wrap .panel{padding:26px}
+.auth-wrap h1{font-size:30px;text-transform:uppercase;margin-bottom:4px}
+.auth-wrap .sub{color:var(--muted);font-size:14px;margin-bottom:18px}
+.auth-err{color:var(--red);font-size:13.5px;margin-top:10px;min-height:18px}
+.setup-note{background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius);padding:16px;font-size:14px;margin-bottom:16px}
+.setup-note code{font-family:var(--font-mono);font-size:12.5px;background:#fff;padding:1px 5px;border-radius:4px}
+.loading{text-align:center;color:var(--muted);padding:40px 0}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ====== 1. EDIT THESE TWO LINES AFTER CREATING YOUR SUPABASE PROJECT ====== -->
+<script>
+const SUPABASE_URL      = "https://mlmcxxjytqquvjvvmujp.supabase.co";      // e.g. https://abcdefgh.supabase.co
+const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // Settings → API → anon public key
+</script>
+<!-- ========================================================================= -->
+
+<div id="authView" class="auth-wrap hidden">
+  <div class="panel">
+    <h1>My <span style="color:var(--go)">Pipeline</span></h1>
+    <p class="sub">Sign in to open your pipeline.</p>
+    <div id="setupNote" class="setup-note hidden">
+      <b>Not configured yet.</b> Open <code>index.html</code> and paste your Supabase URL and anon key into the two lines near the top (marked <code>EDIT THESE TWO LINES</code>), then reload. Full steps are in the setup guide.
+    </div>
+    <div id="loginForm">
+      <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="username"></div>
+      <div class="field"><label for="authPass">Password</label><input id="authPass" type="password" autocomplete="current-password"></div>
+      <button class="btn btn-go" style="width:100%;padding:11px" onclick="signIn()">Sign in</button>
+      <div id="authErr" class="auth-err"></div>
+    </div>
+  </div>
+</div>
+
+<div id="appView" class="hidden">
+<header>
+  <div class="hd-top">
+    <h1>My <span>Pipeline</span></h1>
+    <span class="chip" id="chipMove"></span>
+    <span class="chip" id="chipValue"></span>
+    <button class="signout" onclick="signOut()">Sign out</button>
+  </div>
+  <nav>
+    <button id="tab-today" class="on" onclick="setTab('today')">Today <span class="n" id="todayCount"></span></button>
+    <button id="tab-pipeline" onclick="setTab('pipeline')">Pipeline</button>
+    <button id="tab-add" onclick="setTab('add')">+ Add lead</button>
+    <button id="tab-sync" onclick="setTab('sync')">Weekly sync</button>
+  </nav>
+</header>
+
+<main>
+  <div id="view-today"></div>
+
+  <div id="view-pipeline" class="hidden">
+    <div class="filters" id="pipeFilters"></div>
+    <div class="tbl-wrap"><table id="pipeTable"></table></div>
+    <p class="totals" id="pipeTotals"></p>
+  </div>
+
+  <div id="view-add" class="hidden">
+    <div class="panel">
+      <h2>New lead — 20 seconds</h2>
+      <div class="grid2">
+        <div class="field"><label for="aCompany">Company *</label><input id="aCompany" type="text"></div>
+        <div class="field"><label for="aEmail">Contact email</label><input id="aEmail" type="email" placeholder="name@company.com"></div>
+        <div class="field"><label for="aProduct">Product</label><select id="aProduct"></select></div>
+        <div class="field"><label for="aEng">Engagement type</label><select id="aEng"></select></div>
+      </div>
+      <details class="more"><summary>More details (optional)</summary>
+        <div class="grid2">
+          <div class="field"><label for="aContact">Contact name</label><input id="aContact" type="text"></div>
+          <div class="field"><label for="aSource">Lead source</label><select id="aSource"></select></div>
+          <div class="field"><label for="aValue">Est. value (AED)</label><input id="aValue" type="number" min="0" step="1000"></div>
+          <div class="field"><label for="aClose">Est. close date</label><input id="aClose" type="date"></div>
+          <div class="field"><label for="aCampaign">Campaign</label><select id="aCampaign"></select></div>
+          <div class="field"><label for="aNextDue">First follow-up due</label><input id="aNextDue" type="date"></div>
+        </div>
+        <div class="field"><label for="aNotes">Notes</label><textarea id="aNotes" rows="2"></textarea></div>
+      </details>
+      <button class="btn btn-go" style="padding:11px 22px" onclick="addLead()">Save lead</button>
+    </div>
+  </div>
+
+  <div id="view-sync" class="hidden">
+    <div class="panel">
+      <h2>Weekly CRM sync</h2>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:14px">
+        Drop your D365 <b>Leads</b> and <b>Opportunities</b> exports here (Excel or CSV, both at once is fine).
+        Records are matched to your pipeline by <b>contact email</b> — falling back to <b>email / website domain</b>.
+        Nothing is written until you press an Apply button.
+      </p>
+      <div class="dropzone" id="dropzone">
+        Drop files here, or
+        <label style="display:inline;text-transform:none;font-size:14px;color:var(--go);text-decoration:underline;cursor:pointer;font-weight:600">
+          browse<input id="fileInput" type="file" multiple accept=".xlsx,.xls,.csv" class="hidden">
+        </label>
+      </div>
+      <div id="mapPanel" class="hidden" style="margin-top:16px">
+        <h3 style="font-size:16px;text-transform:uppercase;margin-bottom:10px">Columns detected — adjust if wrong</h3>
+        <div class="map-row"><label style="margin:0">Email</label><select id="mapEmail"></select></div>
+        <div class="map-row"><label style="margin:0">Company</label><select id="mapCompany"></select></div>
+        <div class="map-row"><label style="margin:0">Website</label><select id="mapWebsite"></select></div>
+        <div class="map-row"><label style="margin:0">Topic</label><select id="mapTopic"></select></div>
+        <button class="btn btn-go" style="margin-top:8px" onclick="runMatch()">Run match</button>
+        <span id="rowsLoaded" class="k" style="font-size:13px;color:var(--muted);margin-left:10px"></span>
+      </div>
+    </div>
+    <div id="syncResults"></div>
+  </div>
+</main>
+</div>
+
+<!-- edit drawer -->
+<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer" role="dialog" aria-label="Edit record">
+  <div class="drawer-h"><h2 id="dTitle">Edit</h2><button class="x" onclick="closeDrawer()" aria-label="Close">✕</button></div>
+  <div class="grid2">
+    <div class="field"><label for="eCompany">Company</label><input id="eCompany" type="text"></div>
+    <div class="field"><label for="eEmail">Contact email</label><input id="eEmail" type="email"></div>
+    <div class="field"><label for="eContact">Contact name</label><input id="eContact" type="text"></div>
+    <div class="field"><label for="eProduct">Product</label><select id="eProduct"></select></div>
+    <div class="field"><label for="eEng">Engagement type</label><select id="eEng"></select></div>
+    <div class="field"><label for="eStage">Stage</label><select id="eStage"></select></div>
+    <div class="field"><label for="eBudget">Budget confirmed</label><select id="eBudget"></select></div>
+    <div class="field"><label for="eWaiting">Whose move</label><select id="eWaiting"></select></div>
+    <div class="field"><label for="eValue">Est. value (AED)</label><input id="eValue" type="number" min="0" step="1000"></div>
+    <div class="field"><label for="eClose">Est. close date</label><input id="eClose" type="date"></div>
+    <div class="field"><label for="eNextDue">Next step due</label><input id="eNextDue" type="date"></div>
+    <div class="field"><label for="eSource">Lead source</label><select id="eSource"></select></div>
+    <div class="field"><label for="eCampaign">Campaign</label><select id="eCampaign"></select></div>
+    <div class="field"><label for="ePhase">Delivery phase</label><select id="ePhase"></select></div>
+  </div>
+  <div class="field"><label for="eNext">Next step (what YOU will do)</label><input id="eNext" type="text"></div>
+  <div class="field"><label for="eNotes">Notes</label><textarea id="eNotes" rows="3"></textarea></div>
+  <p class="mono" id="eMeta" style="font-size:12px;color:var(--muted)"></p>
+  <div class="drawer-foot">
+    <button class="btn btn-go" style="padding:10px 22px" onclick="saveEdit()">Save</button>
+    <button class="btn" onclick="closeDrawer()">Cancel</button>
+    <button class="btn btn-ghost btn-danger" style="margin-left:auto" onclick="deleteRecord()">Delete</button>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ================= constants ================= */
+const STAGES = ["Lead – New","Lead – Contacted","Opp – 10 Discover","Opp – 30 Demo","Opp – 50 Propose","Opp – 60 Evaluation","Opp – 70 Shortlisted","Opp – 80 Negotiate","Opp – 90 Commit","Won","Lost – Budget","Lost – Competitor","Lost – No Longer Interested","Disqualified / Cannot Contact","Campaign Candidate"];
+const CLOSED_STAGES = new Set(STAGES.slice(10));
+const LATE_STAGES = new Set(["Opp – 50 Propose","Opp – 60 Evaluation","Opp – 70 Shortlisted","Opp – 80 Negotiate","Opp – 90 Commit"]);
+const PRODUCTS = ["","Dynamics 365 Business Central","Dynamics 365 F&O","Dynamics 365 CRM","Power BI","Power Platform","Microsoft SharePoint","M 365","Microsoft Azure","AI Solutions","ISV-HR-BC","ISV-HR-F&O","ISV-PMS-BC","ISV-PMS-F&O","E-Invoicing","Zatca","Dynamics GP","Dynamics AX","Dynamics NAV","Migration","Third Party"];
+const ENGAGEMENTS = ["","New Implementation","Upgrade / Migration","E-Invoicing Compliance","Support / SLA","Change Request","Licensing","Security","Training"];
+const SOURCES = ["","Info Email","Incoming Call","Existing Client","Website","Microsoft Referral","Self Generated","Partner","Marketing Campaign","WhatsApp","Upselling Opportunities","Gitex","Tawk","App Source","BNI Referral","Other"];
+const CAMPAIGNS = ["","UAE e-Invoicing","SLA Renewal","Copilot / AI","Power BI Analytics"];
+const PHASES = ["","Advance","FRDD Sign-off","Licenses & Development","UAT","Training","Project Sign-off","Final Payment","Complete"];
+const MONEY_PHASES = new Set(["Advance","Final Payment"]);
+const GENERIC_DOMAINS = new Set(["gmail.com","hotmail.com","outlook.com","yahoo.com","icloud.com","live.com","aol.com"]);
+const BUDGETS = ["Unknown","Yes","No"];
+const WAITING = ["Me","Them","Nobody – closed"];
+
+/* ================= state ================= */
+let sb = null, rows = [], tab = "today", pipeFilter = "open", editId = null, syncRows = [], syncHeaders = [];
+
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
+const esc = s => (s==null?"":String(s)).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const todayStr = () => new Date().toISOString().slice(0,10);
+const fmtAED = n => n==null||n===""?"—":"AED "+Number(n).toLocaleString("en-US",{maximumFractionDigits:0});
+const fmtD = d => d? new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}) : "—";
+const daysSince = ts => ts? Math.floor((Date.now()-new Date(ts).getTime())/86400000) : null;
+const hoursSince = ts => ts? (Date.now()-new Date(ts).getTime())/3600000 : null;
+function domainOf(email){
+  if(!email||!email.includes("@")) return null;
+  return email.trim().toLowerCase().split("@").pop() || null;
+}
+function domainOfUrl(u){
+  if(!u) return null;
+  let s = String(u).trim().toLowerCase().replace(/^https?:\/\//,"").replace(/^www\./,"");
+  s = s.split(/[\/?#\s]/)[0];
+  return s.includes(".") ? s : null;
+}
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2600); }
+function fillSelect(el, opts, blankLabel){
+  el.innerHTML = opts.map(o => `<option value="${esc(o)}">${o===""?(blankLabel||"—"):esc(o)}</option>`).join("");
+}
+
+/* ================= urgency model ================= */
+function urgency(r){
+  // returns {cls, badge, why, score} — lower score = higher on the list
+  if(r.waiting_on === "Nobody – closed" || CLOSED_STAGES.has(r.stage) && r.stage!=="Won") return null;
+  if(r.delivery_phase && MONEY_PHASES.has(r.delivery_phase)){
+    const d = daysSince(r.phase_since);
+    return {cls:"u-money", badge:["b-money","💰 "+r.delivery_phase], why:`payment to chase${d!=null?" · "+d+"d in phase":""}`, score:0};
+  }
+  const isLead = r.stage==="Lead – New" || r.stage==="Lead – Contacted";
+  if(r.next_step_due && r.next_step_due < todayStr())
+    return {cls:"u-red", badge:["b-red","OVERDUE"], why:`next step was due ${fmtD(r.next_step_due)}`, score:1};
+  if(isLead && !r.first_response_sent && hoursSince(r.created_at) > 24)
+    return {cls:"u-red", badge:["b-red","REPLY 24H BREACHED"], why:`new lead, no first reply · ${daysSince(r.created_at)}d old`, score:2};
+  const cold = daysSince(r.last_touch);
+  if(cold != null && cold >= 5)
+    return {cls:"u-amber", badge:["b-amber","GOING COLD"], why:`no touch for ${cold} days`, score:3};
+  if(LATE_STAGES.has(r.stage) && r.budget_confirmed === "Unknown")
+    return {cls:"u-amber", badge:["b-amber","BUDGET UNKNOWN"], why:"past Demo without budget qualified — ask", score:4};
+  return {cls:"", badge:["b-grey","ON TRACK"], why:"", score:5};
+}
+const isOpen = r => !CLOSED_STAGES.has(r.stage) || (r.stage==="Won" && r.delivery_phase && r.delivery_phase!=="Complete");
+
+/* ================= auth ================= */
+function configOk(){ return SUPABASE_URL.startsWith("https://") && !SUPABASE_ANON_KEY.startsWith("PASTE"); }
+async function boot(){
+  if(!configOk()){ $("authView").classList.remove("hidden"); $("setupNote").classList.remove("hidden"); $("loginForm").classList.add("hidden"); return; }
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session) enterApp(); else $("authView").classList.remove("hidden");
+  sb.auth.onAuthStateChange((_e, s)=>{ if(!s){ $("appView").classList.add("hidden"); $("authView").classList.remove("hidden"); } });
+}
+async function signIn(){
+  $("authErr").textContent = "";
+  const { error } = await sb.auth.signInWithPassword({ email:$("authEmail").value.trim(), password:$("authPass").value });
+  if(error){ $("authErr").textContent = error.message; return; }
+  enterApp();
+}
+async function signOut(){ await sb.auth.signOut(); location.reload(); }
+
+async function enterApp(){
+  $("authView").classList.add("hidden");
+  $("appView").classList.remove("hidden");
+  $("view-today").innerHTML = '<p class="loading">Loading your pipeline…</p>';
+  fillSelect($("aProduct"),PRODUCTS,"— pick —"); fillSelect($("aEng"),ENGAGEMENTS,"— pick —");
+  fillSelect($("aSource"),SOURCES); fillSelect($("aCampaign"),CAMPAIGNS,"— none —");
+  fillSelect($("eProduct"),PRODUCTS); fillSelect($("eEng"),ENGAGEMENTS);
+  fillSelect($("eStage"),STAGES); fillSelect($("eBudget"),BUDGETS); fillSelect($("eWaiting"),WAITING);
+  fillSelect($("eSource"),SOURCES); fillSelect($("eCampaign"),CAMPAIGNS,"— none —"); fillSelect($("ePhase"),PHASES,"— not in delivery —");
+  await loadRows();
+}
+async function loadRows(){
+  const { data, error } = await sb.from("pipeline").select("*").order("created_at",{ascending:false});
+  if(error){ toast("Load failed: "+error.message); return; }
+  rows = data || [];
+  renderAll();
+}
+
+/* ================= db writes ================= */
+async function dbUpdate(id, patch){
+  patch.updated_at = new Date().toISOString();
+  const { error } = await sb.from("pipeline").update(patch).eq("id", id);
+  if(error){ toast("Save failed: "+error.message); return false; }
+  const r = rows.find(x=>x.id===id); if(r) Object.assign(r, patch);
+  return true;
+}
+async function dbInsert(rec){
+  const { data, error } = await sb.from("pipeline").insert(rec).select().single();
+  if(error){ toast("Save failed: "+error.message); return null; }
+  rows.unshift(data); return data;
+}
+
+/* ================= tabs & header ================= */
+function setTab(t){
+  tab = t;
+  ["today","pipeline","add","sync"].forEach(x=>{
+    $("tab-"+x).classList.toggle("on", x===t);
+    $("view-"+x).classList.toggle("hidden", x!==t);
+  });
+}
+function renderHeader(){
+  const mine = rows.filter(r=>isOpen(r) && r.waiting_on==="Me").length;
+  const val = rows.filter(r=>r.stage.startsWith("Opp")).reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
+  $("chipMove").innerHTML = `my move <b>${mine}</b>`;
+  $("chipValue").innerHTML = `open <b>${val?("AED "+Math.round(val/1000)+"k"):"—"}</b>`;
+  const urgent = rows.filter(r=>isOpen(r)&&r.waiting_on==="Me").map(urgency).filter(u=>u&&u.score<=2).length;
+  $("todayCount").textContent = urgent? urgent : "";
+}
+function renderAll(){ renderHeader(); renderToday(); renderPipeline(); }
+
+/* ================= TODAY ================= */
+function cardHTML(r, u, lane){
+  const val = r.est_value_aed? `<span class="val">${fmtAED(r.est_value_aed)}</span>`:"";
+  const step = r.next_step? `<b>${esc(r.next_step)}</b>${r.next_step_due?` <span class="mono" style="font-size:12px">due ${fmtD(r.next_step_due)}</span>`:""}`
+                          : `<span class="why">no next step planned — plan one ↓</span>`;
+  const waitD = daysSince(r.last_touch);
+  let actions = "";
+  if(lane==="me"){
+    actions = `
+      <button class="btn btn-go" onclick="event.stopPropagation();flipToThem('${r.id}')">✓ Sent — ball to them</button>
+      <button class="btn" onclick="event.stopPropagation();togglePlan('${r.id}')">Plan next step</button>`;
+  } else {
+    actions = `<button class="btn btn-go" onclick="event.stopPropagation();flipToMe('${r.id}')">They replied — my move</button>`;
+  }
+  const info = lane==="them"
+    ? `<span class="why">waiting on them · ${waitD!=null? waitD+"d":"—"}${waitD!=null&&waitD>=5?" — consider a nudge":""}</span>`
+    : step + (u.why? ` <span class="why">· ${esc(u.why)}</span>`:"");
+  return `<div class="card ${u.cls}" onclick="openDrawer('${r.id}')">
+    <div class="card-top">
+      <span class="co">${esc(r.company)}</span>
+      <span class="badge ${u.badge[0]}">${u.badge[1]}</span>
+      ${r.product?`<span class="badge b-grey">${esc(r.product)}</span>`:""}
+      ${val}
+    </div>
+    <div class="card-line">${info}</div>
+    <div class="card-actions">${actions}</div>
+    <div class="plan-row hidden" id="plan-${r.id}" onclick="event.stopPropagation()">
+      <input type="text" id="planText-${r.id}" placeholder="What will you do next?" value="${esc(r.next_step||"")}">
+      <input type="date" id="planDate-${r.id}" value="${r.next_step_due||""}">
+      <button class="btn btn-go" onclick="savePlan('${r.id}')">Set</button>
+    </div>
+  </div>`;
+}
+function renderToday(){
+  const open = rows.filter(isOpen);
+  const mine = open.filter(r=>r.waiting_on==="Me")
+    .map(r=>({r, u:urgency(r)})).filter(x=>x.u)
+    .sort((a,b)=> a.u.score-b.u.score || new Date(a.r.last_touch||0)-new Date(b.r.last_touch||0));
+  const theirs = open.filter(r=>r.waiting_on==="Them")
+    .map(r=>({r, u:{cls:"u-blue",badge:["b-blue","THEIR MOVE"],why:"",score:9}}))
+    .sort((a,b)=> new Date(a.r.last_touch||0)-new Date(b.r.last_touch||0));
+  let h = `<div class="lane">
+    <div class="lane-h"><h2 style="color:var(--red)">My move</h2><span class="cnt">${mine.length}</span>
+    <span class="hint">money & overdue float to the top — clear top-down</span></div>`;
+  h += mine.length? mine.map(x=>cardHTML(x.r,x.u,"me")).join("") : `<div class="empty">Nothing in your court. Rare. Enjoy it.</div>`;
+  h += `</div><div class="lane">
+    <div class="lane-h"><h2 style="color:var(--blue)">Their move</h2><span class="cnt">${theirs.length}</span>
+    <span class="hint">longest wait first — tap when they reply</span></div>`;
+  h += theirs.length? theirs.map(x=>cardHTML(x.r,x.u,"them")).join("") : `<div class="empty">Not waiting on anyone.</div>`;
+  h += `</div>`;
+  $("view-today").innerHTML = h;
+}
+function togglePlan(id){ $("plan-"+id).classList.toggle("hidden"); }
+async function savePlan(id){
+  const ok = await dbUpdate(id,{ next_step: $("planText-"+id).value.trim(), next_step_due: $("planDate-"+id).value || null });
+  if(ok){ toast("Next step set"); renderAll(); }
+}
+async function flipToThem(id){
+  const r = rows.find(x=>x.id===id);
+  const patch = { waiting_on:"Them", last_touch:new Date().toISOString() };
+  if(!r.first_response_sent && (r.stage==="Lead – New"||r.stage==="Lead – Contacted")){
+    patch.first_response_sent = patch.last_touch;
+    if(r.stage==="Lead – New") patch.stage = "Lead – Contacted";
+  }
+  if(await dbUpdate(id, patch)){ toast(`${r.company}: ball is with them`); renderAll(); }
+}
+async function flipToMe(id){
+  const r = rows.find(x=>x.id===id);
+  if(await dbUpdate(id,{ waiting_on:"Me", last_touch:new Date().toISOString() })){ toast(`${r.company}: your move`); renderAll(); }
+}
+
+/* ================= PIPELINE tab ================= */
+const FILTERS = [["open","Open"],["leads","Leads"],["opps","Opportunities"],["delivery","Won / delivery"],["closed","Closed"],["all","All"]];
+function pipeRows(){
+  switch(pipeFilter){
+    case "leads": return rows.filter(r=>r.stage.startsWith("Lead"));
+    case "opps": return rows.filter(r=>r.stage.startsWith("Opp"));
+    case "delivery": return rows.filter(r=>r.stage==="Won");
+    case "closed": return rows.filter(r=>CLOSED_STAGES.has(r.stage) && r.stage!=="Won");
+    case "all": return rows.slice();
+    default: return rows.filter(r=>isOpen(r) || r.stage==="Won");
+  }
+}
+function renderPipeline(){
+  $("pipeFilters").innerHTML = FILTERS.map(([k,l])=>`<button class="btn ${pipeFilter===k?"on":""}" onclick="pipeFilter='${k}';renderPipeline()">${l}</button>`).join("");
+  const list = pipeRows();
+  const byStage = {};
+  list.forEach(r=>{ (byStage[r.stage] = byStage[r.stage]||[]).push(r); });
+  let h = `<tr><th>Company</th><th>Product</th><th>Whose move</th><th>Budget</th><th>Value</th><th>Last touch</th><th>CRM</th></tr>`;
+  STAGES.forEach(st=>{
+    const grp = byStage[st]; if(!grp) return;
+    h += `<tr class="stage-grp"><td colspan="7">${esc(st)} · ${grp.length}</td></tr>`;
+    grp.forEach(r=>{
+      const crm = r.crm_status==="in_crm"?"✔":(r.crm_status==="not_in_crm"?"—":"·");
+      const phase = r.delivery_phase? `<div class="sub">📦 ${esc(r.delivery_phase)}${r.phase_since?` · ${daysSince(r.phase_since)}d`:""}</div>`:"";
+      h += `<tr onclick="openDrawer('${r.id}')">
+        <td><b>${esc(r.company)}</b>${phase}${r.notes?`<div class="sub">${esc(r.notes.slice(0,70))}</div>`:""}</td>
+        <td>${esc(r.product||"—")}</td>
+        <td>${esc(r.waiting_on)}</td>
+        <td>${r.budget_confirmed==="Unknown"&&LATE_STAGES.has(r.stage)?'<span class="badge b-amber">Unknown ⚠</span>':esc(r.budget_confirmed||"—")}</td>
+        <td class="mono">${fmtAED(r.est_value_aed)}</td>
+        <td class="mono">${fmtD(r.last_touch)}</td>
+        <td>${crm}</td></tr>`;
+    });
+  });
+  $("pipeTable").innerHTML = h;
+  const opps = list.filter(r=>r.stage.startsWith("Opp"));
+  const total = opps.reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
+  const weighted = opps.reduce((s,r)=>{ const m=r.stage.match(/Opp – (\d\d)/); return s+(Number(r.est_value_aed)||0)*(m?Number(m[1])/100:0); },0);
+  $("pipeTotals").textContent = `${list.length} records · open opp value ${fmtAED(total)} · weighted ${fmtAED(Math.round(weighted))}`;
+}
+
+/* ================= ADD ================= */
+async function addLead(){
+  const company = $("aCompany").value.trim();
+  if(!company){ toast("Company is required"); return; }
+  const email = $("aEmail").value.trim() || null;
+  const rec = {
+    company, contact_email: email, domain: domainOf(email),
+    contact_name: $("aContact").value.trim() || null,
+    product: $("aProduct").value || null, engagement_type: $("aEng").value || null,
+    lead_source: $("aSource").value || null, campaign: $("aCampaign").value || null,
+    est_value_aed: $("aValue").value? Number($("aValue").value):null,
+    est_close_date: $("aClose").value || null,
+    next_step: "Review & first response", next_step_due: $("aNextDue").value || null,
+    notes: $("aNotes").value.trim() || null,
+    stage: "Lead – New", waiting_on: "Me", budget_confirmed: "Unknown",
+    last_touch: new Date().toISOString()
+  };
+  const d = await dbInsert(rec);
+  if(d){ toast(company+" added — it's your move"); ["aCompany","aEmail","aContact","aValue","aClose","aNextDue","aNotes"].forEach(i=>$(i).value=""); renderAll(); setTab("today"); }
+}
+
+/* ================= EDIT drawer ================= */
+function openDrawer(id){
+  const r = rows.find(x=>x.id===id); if(!r) return;
+  editId = id;
+  $("dTitle").textContent = r.company;
+  $("eCompany").value=r.company; $("eEmail").value=r.contact_email||""; $("eContact").value=r.contact_name||"";
+  $("eProduct").value=r.product||""; $("eEng").value=r.engagement_type||"";
+  $("eStage").value=r.stage; $("eBudget").value=r.budget_confirmed||"Unknown"; $("eWaiting").value=r.waiting_on;
+  $("eValue").value=r.est_value_aed||""; $("eClose").value=r.est_close_date||"";
+  $("eNextDue").value=r.next_step_due||""; $("eSource").value=r.lead_source||""; $("eCampaign").value=r.campaign||"";
+  $("ePhase").value=r.delivery_phase||""; $("eNext").value=r.next_step||""; $("eNotes").value=r.notes||"";
+  $("eMeta").textContent = `created ${fmtD(r.created_at)} · last touch ${fmtD(r.last_touch)}` + (r.crm_status==="in_crm"?` · ✔ in CRM (${r.crm_topic||"matched"})`:(r.crm_status==="not_in_crm"?" · not in CRM":""));
+  $("overlay").classList.add("open"); $("drawer").classList.add("open");
+}
+function closeDrawer(){ $("overlay").classList.remove("open"); $("drawer").classList.remove("open"); editId=null; }
+async function saveEdit(){
+  const r = rows.find(x=>x.id===editId); if(!r) return;
+  const newStage = $("eStage").value, budget = $("eBudget").value;
+  if(LATE_STAGES.has(newStage) && budget==="Unknown" && newStage!==r.stage){
+    if(!confirm("Budget is still UNKNOWN — your history says late-stage budget losses are where deals die.\n\nAdvance anyway?")) return;
+  }
+  const email = $("eEmail").value.trim() || null;
+  const patch = {
+    company: $("eCompany").value.trim() || r.company,
+    contact_email: email, domain: domainOf(email),
+    contact_name: $("eContact").value.trim()||null,
+    product: $("eProduct").value||null, engagement_type: $("eEng").value||null,
+    stage: newStage, budget_confirmed: budget, waiting_on: $("eWaiting").value,
+    est_value_aed: $("eValue").value? Number($("eValue").value):null,
+    est_close_date: $("eClose").value||null,
+    next_step: $("eNext").value.trim()||null, next_step_due: $("eNextDue").value||null,
+    lead_source: $("eSource").value||null, campaign: $("eCampaign").value||null,
+    delivery_phase: $("ePhase").value||null, notes: $("eNotes").value.trim()||null
+  };
+  // Won handoff: open the delivery track automatically
+  if(newStage==="Won" && r.stage!=="Won" && !patch.delivery_phase){
+    patch.delivery_phase="Advance"; patch.phase_since=todayStr();
+    patch.waiting_on="Me"; patch.next_step="Invoice & collect advance";
+    toast("🏆 Won — advance invoicing is now your move");
+  }
+  // Phase change: restart the phase clock
+  if(patch.delivery_phase && patch.delivery_phase !== r.delivery_phase) patch.phase_since = todayStr();
+  if(await dbUpdate(editId, patch)){ if(!patch.next_step||patch.next_step!=="Invoice & collect advance") toast("Saved"); closeDrawer(); renderAll(); }
+}
+async function deleteRecord(){
+  const r = rows.find(x=>x.id===editId); if(!r) return;
+  if(!confirm(`Delete ${r.company} permanently?`)) return;
+  const { error } = await sb.from("pipeline").delete().eq("id", editId);
+  if(error){ toast("Delete failed: "+error.message); return; }
+  rows = rows.filter(x=>x.id!==editId);
+  closeDrawer(); renderAll(); toast("Deleted");
+}
+
+/* ================= WEEKLY SYNC ================= */
+const dz = () => $("dropzone");
+document.addEventListener("DOMContentLoaded", ()=>{
+  $("fileInput").addEventListener("change", e=>handleFiles(e.target.files));
+  const d = dz();
+  d.addEventListener("dragover", e=>{e.preventDefault(); d.classList.add("drag");});
+  d.addEventListener("dragleave", ()=>d.classList.remove("drag"));
+  d.addEventListener("drop", e=>{e.preventDefault(); d.classList.remove("drag"); handleFiles(e.dataTransfer.files);});
+  boot();
+});
+async function handleFiles(files){
+  syncRows = []; syncHeaders = [];
+  for(const f of files){
+    const buf = await f.arrayBuffer();
+    const wb = XLSX.read(buf, {type:"array"});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const grid = XLSX.utils.sheet_to_json(ws, {header:1, defval:""});
+    // find header row within first 6 rows: the one with the most string cells incl. an email/company-ish header
+    let hIdx = 0, best = -1;
+    for(let i=0;i<Math.min(6,grid.length);i++){
+      const cells = grid[i].filter(c=>typeof c==="string" && c.trim());
+      const hit = cells.some(c=>/email|company|account|topic/i.test(c));
+      const score = cells.length + (hit?100:0);
+      if(score>best){ best=score; hIdx=i; }
+    }
+    const headers = grid[hIdx].map(h=>String(h).trim());
+    for(let i=hIdx+1;i<grid.length;i++){
+      const row = grid[i];
+      if(row.every(c=>c===""||c==null)) continue;
+      const obj = {};
+      headers.forEach((h,j)=>{ if(h) obj[h] = row[j]!=null? String(row[j]).trim():""; });
+      obj.__file = f.name;
+      syncRows.push(obj);
+    }
+    headers.forEach(h=>{ if(h && !syncHeaders.includes(h)) syncHeaders.push(h); });
+  }
+  if(!syncRows.length){ toast("No rows found in those files"); return; }
+  const opts = ["", ...syncHeaders];
+  const pick = re => syncHeaders.find(h=>re.test(h)) || "";
+  fillSelect($("mapEmail"), opts, "— none —");   $("mapEmail").value   = pick(/e-?mail/i);
+  fillSelect($("mapCompany"), opts, "— none —"); $("mapCompany").value = pick(/company|account/i) || pick(/^name$/i);
+  fillSelect($("mapWebsite"), opts, "— none —"); $("mapWebsite").value = pick(/website|url/i);
+  fillSelect($("mapTopic"), opts, "— none —");   $("mapTopic").value   = pick(/topic/i);
+  $("rowsLoaded").textContent = `${syncRows.length} rows loaded from ${new Set(syncRows.map(r=>r.__file)).size} file(s)`;
+  $("mapPanel").classList.remove("hidden");
+  $("syncResults").innerHTML = "";
+}
+function runMatch(){
+  const cE=$("mapEmail").value, cC=$("mapCompany").value, cW=$("mapWebsite").value, cT=$("mapTopic").value;
+  if(!cE && !cW){ toast("Pick at least an email or website column"); return; }
+  // index my pipeline
+  const byEmail = new Map(), byDomain = new Map();
+  rows.forEach(r=>{
+    if(r.contact_email) byEmail.set(r.contact_email.toLowerCase(), r);
+    if(r.domain && !GENERIC_DOMAINS.has(r.domain)){ if(!byDomain.has(r.domain)) byDomain.set(r.domain, r); }
+  });
+  const matched = [], crmOnly = [], noKey = [];
+  const matchedIds = new Set();
+  syncRows.forEach(row=>{
+    const email = cE? String(row[cE]||"").toLowerCase().trim():"";
+    const dom = domainOf(email);
+    const wdom = cW? domainOfUrl(row[cW]):null;
+    let hit = email? byEmail.get(email):null;
+    if(!hit && dom && !GENERIC_DOMAINS.has(dom)) hit = byDomain.get(dom);
+    if(!hit && wdom) hit = byDomain.get(wdom);
+    const label = (cC? row[cC]:"") || email || wdom || "(unnamed)";
+    const topic = cT? row[cT]:"";
+    if(hit){ matched.push({row, hit, label, topic, key: email||dom||wdom}); matchedIds.add(hit.id); }
+    else if(email || wdom){ crmOnly.push({label, email, wdom, topic}); }
+    else noKey.push({label, topic});
+  });
+  const mineOnly = rows.filter(r=>isOpen(r) && !matchedIds.has(r.id));
+  window.__match = {matched, crmOnly, mineOnly};
+  let h = "";
+  h += `<div class="panel sync-group"><h3 style="color:var(--go)">Matched — in CRM and in your list <span class="cnt">${matched.length}</span></h3>`;
+  h += matched.length? `<button class="btn btn-go" style="margin-bottom:10px" onclick="applyMatched()">Apply: mark all ${matched.length} as ✔ in CRM</button>`:"";
+  h += matched.slice(0,80).map(m=>`<div class="sync-item"><span class="grow"><b>${esc(m.hit.company)}</b> ⇄ ${esc(m.label)}</span><span class="k">${esc(m.key||"")}</span></div>`).join("") || `<div class="empty">No matches.</div>`;
+  h += `</div>`;
+  h += `<div class="panel sync-group"><h3 style="color:var(--amber)">In CRM, not in your list <span class="cnt">${crmOnly.length}</span></h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:8px">Leads assigned to you that you never logged — add the real ones.</p>`;
+  h += crmOnly.length? `<button class="btn" style="margin-bottom:10px" onclick="addAllCrm()">+ Add all ${crmOnly.length} as leads</button>`:"";
+  h += crmOnly.slice(0,80).map((m,i)=>`<div class="sync-item"><span class="grow"><b>${esc(m.label)}</b>${m.topic?` <span class="k">${esc(m.topic)}</span>`:""}</span><span class="k">${esc(m.email||m.wdom||"")}</span><button class="btn" onclick="addFromCrm(${i})">+ Add</button></div>`).join("") || `<div class="empty">Nothing missing. Your list is ahead of the CRM.</div>`;
+  h += `</div>`;
+  h += `<div class="panel sync-group"><h3>In your list, not in this export <span class="cnt">${mineOnly.length}</span></h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:8px">Informational — your list is the source of truth. Screenshot for your admin if these should exist in CRM.</p>`;
+  h += mineOnly.length? `<button class="btn" style="margin-bottom:10px" onclick="markNotInCrm()">Mark all as “not in CRM”</button>`:"";
+  h += mineOnly.slice(0,80).map(r=>`<div class="sync-item"><span class="grow"><b>${esc(r.company)}</b></span><span class="k">${esc(r.contact_email||r.domain||"no email — add one to enable matching")}</span></div>`).join("") || `<div class="empty">Everything matched.</div>`;
+  h += `</div>`;
+  if(noKey.length) h += `<div class="panel sync-group"><h3>Skipped — no email or website in export <span class="cnt">${noKey.length}</span></h3>${noKey.slice(0,40).map(m=>`<div class="sync-item"><span class="grow">${esc(m.label)}</span></div>`).join("")}</div>`;
+  $("syncResults").innerHTML = h;
+}
+async function applyMatched(){
+  const now = new Date().toISOString();
+  let n = 0;
+  for(const m of window.__match.matched){
+    if(await dbUpdate(m.hit.id, {crm_status:"in_crm", crm_topic: m.topic||null, crm_last_sync: now})) n++;
+  }
+  toast(`${n} records marked ✔ in CRM`); renderAll();
+}
+async function markNotInCrm(){
+  const now = new Date().toISOString();
+  let n = 0;
+  for(const r of window.__match.mineOnly){
+    if(await dbUpdate(r.id, {crm_status:"not_in_crm", crm_last_sync: now})) n++;
+  }
+  toast(`${n} records flagged not-in-CRM`); renderAll();
+}
+async function addFromCrm(i){
+  const m = window.__match.crmOnly[i]; if(!m) return;
+  const email = m.email||null;
+  const d = await dbInsert({
+    company: m.label, contact_email: email, domain: domainOf(email)||m.wdom||null,
+    notes: m.topic||null, stage:"Lead – New", waiting_on:"Me", budget_confirmed:"Unknown",
+    next_step:"Review & first response", last_touch:new Date().toISOString(),
+    crm_status:"in_crm", crm_last_sync:new Date().toISOString()
+  });
+  if(d){ toast(m.label+" added"); renderAll(); }
+}
+async function addAllCrm(){
+  const list = window.__match.crmOnly.slice();
+  let n=0;
+  for(let i=0;i<list.length;i++){ await addFromCrm(i); n++; }
+  toast(`${n} leads added`);
+}
+</script>
+</body>
+</html>
