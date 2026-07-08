@@ -144,6 +144,36 @@ details.more .grid2{margin-top:12px}
 .setup-note code{font-family:var(--font-mono);font-size:12.5px;background:#fff;padding:1px 5px;border-radius:4px}
 .loading{text-align:center;color:var(--muted);padding:40px 0}
 .hidden{display:none!important}
+
+/* ---------- dashboard ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.kpi .k-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kpi .k-val{font-family:var(--font-display);font-size:26px;font-weight:700;margin-top:2px}
+.kpi .k-sub{font-family:var(--font-mono);font-size:11.5px;color:var(--muted);margin-top:2px}
+.dash-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.dash-panel h2{font-size:19px;font-weight:700;text-transform:uppercase;margin-bottom:12px;border-bottom:2px solid var(--ink);padding-bottom:4px;display:flex;align-items:baseline;gap:10px}
+.dash-panel h2 .hint{font-size:12px;color:var(--muted);font-family:var(--font-body);text-transform:none;letter-spacing:0;margin-left:auto;font-weight:400;text-align:right}
+.dash-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.dash-2col{grid-template-columns:1fr}}
+.target-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px}
+.target-row .field{margin-bottom:0;flex:1;min-width:150px;max-width:220px}
+.prob-row{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.prob-row .field{margin-bottom:0;width:92px}
+.prob-row input{padding:6px 8px;font-size:13px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+.scen{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--soft)}
+.scen .s-l{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
+.scen .s-v{font-family:var(--font-display);font-size:22px;font-weight:700}
+.scen .s-d{font-family:var(--font-mono);font-size:11.5px;margin-top:1px}
+.bar-row{display:grid;grid-template-columns:150px 1fr 92px;gap:8px;align-items:center;margin-bottom:7px;font-size:13px}
+.bar-row .b-track{background:var(--soft);border-radius:5px;height:18px;overflow:hidden}
+.bar-row .b-fill{height:100%;border-radius:5px;background:var(--go);min-width:2px}
+.bar-row .b-val{font-family:var(--font-mono);font-size:12px;text-align:right;color:var(--muted)}
+.conv-note{font-size:11.5px;color:var(--muted);margin:-3px 0 7px 4px}
+@media(max-width:520px){.bar-row{grid-template-columns:110px 1fr 78px}}
 </style>
 </head>
 <body>
@@ -184,11 +214,14 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <button id="tab-pipeline" onclick="setTab('pipeline')">Pipeline</button>
     <button id="tab-add" onclick="setTab('add')">+ Add lead</button>
     <button id="tab-sync" onclick="setTab('sync')">Weekly sync</button>
+    <button id="tab-dash" onclick="setTab('dash')">Dashboard</button>
   </nav>
 </header>
 
 <main>
   <div id="view-today"></div>
+
+  <div id="view-dash" class="hidden"></div>
 
   <div id="view-pipeline" class="hidden">
     <div class="filters" id="pipeFilters"></div>
@@ -297,9 +330,12 @@ const MONEY_PHASES = new Set(["Advance","Final Payment"]);
 const GENERIC_DOMAINS = new Set(["gmail.com","hotmail.com","outlook.com","yahoo.com","icloud.com","live.com","aol.com"]);
 const BUDGETS = ["Unknown","Yes","No"];
 const WAITING = ["Me","Them","Nobody – closed"];
+const OPEN_STAGES = ["New","Qualifying","Demo","Proposal","Negotiation"];
+const STAGE_PROB_DEFAULT = {New:10, Qualifying:20, Demo:40, Proposal:60, Negotiation:80};
 
 /* ================= state ================= */
 let sb = null, rows = [], tab = "today", pipeFilter = "open", editId = null, syncRows = [], syncHeaders = [];
+let settings = { qTarget: 0, probs: Object.assign({}, STAGE_PROB_DEFAULT) }, settingsSource = null, settingsLoaded = false;
 
 /* ================= helpers ================= */
 const $ = id => document.getElementById(id);
@@ -378,6 +414,7 @@ async function loadRows(){
   const { data, error } = await sb.from("pipeline").select("*").order("created_at",{ascending:false});
   if(error){ toast("Load failed: "+error.message); return; }
   rows = data || [];
+  if(!settingsLoaded){ await loadSettings(); settingsLoaded = true; }
   renderAll();
 }
 
@@ -398,20 +435,20 @@ async function dbInsert(rec){
 /* ================= tabs & header ================= */
 function setTab(t){
   tab = t;
-  ["today","pipeline","add","sync"].forEach(x=>{
+  ["today","pipeline","add","sync","dash"].forEach(x=>{
     $("tab-"+x).classList.toggle("on", x===t);
     $("view-"+x).classList.toggle("hidden", x!==t);
   });
 }
 function renderHeader(){
   const mine = rows.filter(r=>isOpen(r) && r.waiting_on==="Me").length;
-  const val = rows.filter(r=>r.stage.startsWith("Opp")).reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
+  const val = rows.filter(r=>OPEN_STAGES.includes(r.stage)).reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
   $("chipMove").innerHTML = `my move <b>${mine}</b>`;
   $("chipValue").innerHTML = `open <b>${val?("AED "+Math.round(val/1000)+"k"):"—"}</b>`;
   const urgent = rows.filter(r=>isOpen(r)&&r.waiting_on==="Me").map(urgency).filter(u=>u&&u.score<=2).length;
   $("todayCount").textContent = urgent? urgent : "";
 }
-function renderAll(){ renderHeader(); renderToday(); renderPipeline(); }
+function renderAll(){ renderHeader(); renderToday(); renderPipeline(); renderDashboard(); }
 
 /* ================= TODAY ================= */
 function cardHTML(r, u, lane){
@@ -473,9 +510,8 @@ async function savePlan(id){
 async function flipToThem(id){
   const r = rows.find(x=>x.id===id);
   const patch = { waiting_on:"Them", last_touch:new Date().toISOString() };
-  if(!r.first_response_sent && (r.stage==="Lead – New"||r.stage==="Lead – Contacted")){
+  if(!r.first_response_sent && (r.stage==="New"||r.stage==="Qualifying")){
     patch.first_response_sent = patch.last_touch;
-    if(r.stage==="Lead – New") patch.stage = "Lead – Contacted";
   }
   if(await dbUpdate(id, patch)){ toast(`${r.company}: ball is with them`); renderAll(); }
 }
@@ -488,8 +524,8 @@ async function flipToMe(id){
 const FILTERS = [["open","Open"],["leads","Leads"],["opps","Opportunities"],["delivery","Won / delivery"],["closed","Closed"],["all","All"]];
 function pipeRows(){
   switch(pipeFilter){
-    case "leads": return rows.filter(r=>r.stage.startsWith("Lead"));
-    case "opps": return rows.filter(r=>r.stage.startsWith("Opp"));
+    case "leads": return rows.filter(r=>r.stage==="New"||r.stage==="Qualifying");
+    case "opps": return rows.filter(r=>["Demo","Proposal","Negotiation"].includes(r.stage));
     case "delivery": return rows.filter(r=>r.stage==="Won");
     case "closed": return rows.filter(r=>CLOSED_STAGES.has(r.stage) && r.stage!=="Won");
     case "all": return rows.slice();
@@ -519,9 +555,9 @@ function renderPipeline(){
     });
   });
   $("pipeTable").innerHTML = h;
-  const opps = list.filter(r=>r.stage.startsWith("Opp"));
+  const opps = list.filter(r=>OPEN_STAGES.includes(r.stage));
   const total = opps.reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
-  const weighted = opps.reduce((s,r)=>{ const m=r.stage.match(/Opp – (\d\d)/); return s+(Number(r.est_value_aed)||0)*(m?Number(m[1])/100:0); },0);
+  const weighted = opps.reduce((s,r)=>s+(Number(r.est_value_aed)||0)*prob(r),0);
   $("pipeTotals").textContent = `${list.length} records · open opp value ${fmtAED(total)} · weighted ${fmtAED(Math.round(weighted))}`;
 }
 
@@ -581,6 +617,7 @@ async function saveEdit(){
     delivery_phase: $("ePhase").value||null, notes: $("eNotes").value.trim()||null,
       lost_reason: newStage==="Lost" ? $("#eLostReason").value||null : null
   };
+  if(newStage==="Won" && r.stage!=="Won" && rows.length && ("won_date" in rows[0])) patch.won_date = todayStr();
   // Won handoff: open the delivery track automatically
   if(newStage==="Won" && r.stage!=="Won" && !patch.delivery_phase){
     patch.delivery_phase="Advance"; patch.phase_since=todayStr();
@@ -598,6 +635,229 @@ async function deleteRecord(){
   if(error){ toast("Delete failed: "+error.message); return; }
   rows = rows.filter(x=>x.id!==editId);
   closeDrawer(); renderAll(); toast("Deleted");
+}
+
+
+/* ================= DASHBOARD ================= */
+const prob = r => (Number(settings.probs[r.stage])||0)/100;
+const kAED = n => n>=1e6 ? (n/1e6).toFixed(2).replace(/\.?0+$/,"")+"M" : (n>=1e3 ? Math.round(n/1e3)+"k" : String(Math.round(n)));
+function quarterInfo(d=new Date()){
+  const q = Math.floor(d.getMonth()/3);
+  const start = new Date(d.getFullYear(), q*3, 1), end = new Date(d.getFullYear(), q*3+3, 0);
+  const iso = x => x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");
+  return { label:"Q"+(q+1)+" "+d.getFullYear(), startStr:iso(start), endStr:iso(end) };
+}
+function wonDateOf(r){
+  if(r.stage!=="Won") return null;
+  return r.won_date || r.est_close_date || r.phase_since || (r.updated_at||r.created_at||"").slice(0,10) || null;
+}
+async function loadSettings(){
+  try{
+    const { data, error } = await sb.from("settings").select("*");
+    if(error) throw error;
+    settingsSource = "db";
+    (data||[]).forEach(s=>{
+      if(s.key==="q_target") settings.qTarget = Number(s.value)||0;
+      if(s.key==="stage_probs" && s.value) Object.assign(settings.probs, s.value);
+    });
+  }catch(e){
+    settingsSource = "local";
+    try{
+      const s = JSON.parse(localStorage.getItem("dash_settings")||"{}");
+      if(s.qTarget!=null) settings.qTarget = Number(s.qTarget)||0;
+      if(s.probs) Object.assign(settings.probs, s.probs);
+    }catch(_){}
+  }
+}
+async function saveSettings(){
+  if(settingsSource==="db"){
+    const { error } = await sb.from("settings").upsert([
+      { key:"q_target", value: settings.qTarget },
+      { key:"stage_probs", value: settings.probs }
+    ]);
+    if(error){ toast("Settings save failed: "+error.message); return; }
+  } else {
+    localStorage.setItem("dash_settings", JSON.stringify({ qTarget: settings.qTarget, probs: settings.probs }));
+  }
+  toast("Dashboard settings saved");
+}
+function saveDashSettings(){
+  settings.qTarget = Number($("dashTarget").value)||0;
+  OPEN_STAGES.forEach(st=>{
+    const v = Number($("prob-"+st).value);
+    if(!isNaN(v)) settings.probs[st] = Math.max(0, Math.min(100, v));
+  });
+  saveSettings();
+  renderDashboard();
+}
+function gaugeSVG(wonV, target){
+  const pct = target>0 ? Math.min(wonV/target, 1) : 0, L = 251.33;
+  return `<svg viewBox="0 0 200 118" style="width:100%;max-width:250px;height:auto">
+    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--line)" stroke-width="15" stroke-linecap="round"/>
+    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="${pct>=1?"var(--go)":(pct>=0.6?"var(--go)":(pct>=0.3?"var(--amber)":"var(--red)"))}" stroke-width="15" stroke-linecap="round" stroke-dasharray="${Math.max(pct*L,0.01).toFixed(1)} 999"/>
+    <text x="100" y="84" text-anchor="middle" font-size="30" font-weight="700" font-family="var(--font-display)" fill="var(--ink)">${target>0? Math.round(100*wonV/target)+"%" : "—"}</text>
+    <text x="100" y="108" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--font-mono)">${target>0? "AED "+kAED(wonV)+" / "+kAED(target) : "set a target below"}</text>
+  </svg>`;
+}
+function forecastSVG(buckets){
+  const W=880, H=252, padL=56, padB=30, padT=14, padR=8;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const max=Math.max(1, ...buckets.map(b=>b.best));
+  const gw=iw/buckets.length, bw=Math.min(24,(gw-16)/3);
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">`;
+  for(let i=0;i<=4;i++){
+    const y=padT+ih-ih*i/4;
+    s += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
+    s += `<text x="${padL-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--font-mono)">${kAED(max*i/4)}</text>`;
+  }
+  buckets.forEach((b,i)=>{
+    const x0=padL+gw*i+(gw-bw*3-8)/2;
+    [["#C9D4D9",b.best],["var(--go)",b.likely],["var(--blue)",b.commit]].forEach(([c,v],j)=>{
+      const h=ih*v/max, x=x0+j*(bw+4);
+      s += `<rect x="${x.toFixed(1)}" y="${(padT+ih-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h, v>0?2:0).toFixed(1)}" rx="3" fill="${c}"/>`;
+    });
+    s += `<text x="${(padL+gw*i+gw/2).toFixed(1)}" y="${H-9}" text-anchor="middle" font-size="12" fill="var(--muted)">${b.label}</text>`;
+  });
+  return s+"</svg>";
+}
+function funnelHTML(){
+  const FUNNEL=["New","Qualifying","Demo","Proposal","Negotiation","Won"];
+  const idx={}; FUNNEL.forEach((s,i)=>idx[s]=i);
+  const inF = rows.filter(r=>idx[r.stage]!=null);
+  if(!inF.length) return '<p style="color:var(--muted);font-size:13px">No deals yet.</p>';
+  const reach = FUNNEL.map((_,i)=> inF.filter(r=>idx[r.stage]>=i).length);
+  const maxN = Math.max(1, ...FUNNEL.map(s=> inF.filter(r=>r.stage===s).length));
+  let h="";
+  FUNNEL.forEach((st,i)=>{
+    const cur = inF.filter(r=>r.stage===st);
+    const v = cur.reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
+    const conv = (i<FUNNEL.length-1 && reach[i]>0) ? Math.round(100*reach[i+1]/reach[i]) : null;
+    h += `<div class="bar-row"><span><b>${st}</b> · ${cur.length}</span><div class="b-track"><div class="b-fill" style="width:${Math.max(2,Math.round(100*cur.length/maxN))}%;background:${st==="Won"?"var(--go)":"var(--blue)"}"></div></div><span class="b-val">${v?"AED "+kAED(v):"—"}</span></div>`;
+    if(conv!=null) h += `<div class="conv-note">↓ ${conv}% advance past ${st}</div>`;
+  });
+  return h;
+}
+function breakdownHTML(field){
+  const open = rows.filter(r=>OPEN_STAGES.includes(r.stage));
+  const g={};
+  open.forEach(r=>{ const k=r[field]||"(none)"; (g[k]=g[k]||{n:0,v:0}); g[k].n++; g[k].v+=Number(r.est_value_aed)||0; });
+  const items = Object.entries(g).sort((a,b)=>b[1].v-a[1].v || b[1].n-a[1].n).slice(0,8);
+  if(!items.length) return '<p style="color:var(--muted);font-size:13px">No open deals yet.</p>';
+  const max = Math.max(1, ...items.map(([,x])=>x.v));
+  return items.map(([k,x])=>`<div class="bar-row"><span title="${esc(k)}">${esc(k.length>20?k.slice(0,19)+"…":k)} · ${x.n}</span><div class="b-track"><div class="b-fill" style="width:${Math.max(2,Math.round(100*x.v/max))}%"></div></div><span class="b-val">${x.v?"AED "+kAED(x.v):"—"}</span></div>`).join("");
+}
+function renderDashboard(){
+  const el=$("view-dash"); if(!el) return;
+  const Q=quarterInfo(), val=r=>Number(r.est_value_aed)||0;
+  const open=rows.filter(r=>OPEN_STAGES.includes(r.stage));
+  const openVal=open.reduce((s,r)=>s+val(r),0);
+  const weightedVal=open.reduce((s,r)=>s+val(r)*prob(r),0);
+  const wonAll=rows.filter(r=>r.stage==="Won");
+  const wonQVal=wonAll.filter(r=>{const d=wonDateOf(r);return d&&d>=Q.startStr&&d<=Q.endStr;}).reduce((s,r)=>s+val(r),0);
+  const lostN=rows.filter(r=>r.stage==="Lost").length;
+  const winRate=(wonAll.length+lostN)?Math.round(100*wonAll.length/(wonAll.length+lostN)):null;
+  const withVal=open.filter(r=>val(r)>0);
+  const avg=withVal.length?openVal/withVal.length:0;
+  const cold=open.filter(r=>{const d=daysSince(r.last_touch);return d!=null&&d>=5;}).length;
+
+  // quarter scenarios (deals with est_close_date on/before quarter end)
+  const inQ=open.filter(r=>r.est_close_date&&r.est_close_date<=Q.endStr);
+  const bestQ=wonQVal+inQ.reduce((s,r)=>s+val(r),0);
+  const likelyQ=wonQVal+inQ.reduce((s,r)=>s+val(r)*prob(r),0);
+  const commitQ=wonQVal+inQ.filter(r=>LATE_STAGES.has(r.stage)).reduce((s,r)=>s+val(r),0);
+  const target=settings.qTarget||0, gap=Math.max(target-wonQVal,0);
+  const covWeighted=inQ.reduce((s,r)=>s+val(r)*prob(r),0);
+  const coverage=gap>0?(covWeighted/gap):null;
+
+  // forecast month buckets: this month + 5, then Later / No date
+  const now=new Date(), months=[];
+  for(let i=0;i<6;i++){
+    const m=new Date(now.getFullYear(), now.getMonth()+i, 1);
+    months.push({ key:m.getFullYear()+"-"+String(m.getMonth()+1).padStart(2,"0"), label:m.toLocaleDateString("en-GB",{month:"short"}), best:0, likely:0, commit:0 });
+  }
+  const later={key:"later",label:"Later",best:0,likely:0,commit:0}, noDate={key:"none",label:"No date",best:0,likely:0,commit:0};
+  open.forEach(r=>{
+    const v=val(r); if(!v) return;
+    let b=noDate;
+    if(r.est_close_date){
+      const k=r.est_close_date.slice(0,7);
+      b = months.find(m=>m.key===k) || (k<months[0].key ? months[0] : later);
+    }
+    b.best+=v; b.likely+=v*prob(r); if(LATE_STAGES.has(r.stage)) b.commit+=v;
+  });
+  const buckets=[...months, later, noDate];
+
+  const scen=(l,x)=>{
+    const d = target? x-target : null;
+    const dTxt = d==null? "" : (d>=0? '<span style="color:var(--go)">+AED '+kAED(d)+' vs target</span>' : '<span style="color:var(--red)">−AED '+kAED(-d)+' vs target</span>');
+    return `<div class="scen"><div class="s-l">${l}</div><div class="s-v">AED ${kAED(x)}</div><div class="s-d">${dTxt}</div></div>`;
+  };
+  const kpi=(l,v,sub)=>`<div class="kpi"><div class="k-label">${l}</div><div class="k-val">${v}</div>${sub?`<div class="k-sub">${sub}</div>`:""}</div>`;
+
+  el.innerHTML = `
+  <div class="kpis">
+    ${kpi("Open pipeline", openVal?"AED "+kAED(openVal):"—", open.length+" deals · "+withVal.length+" valued")}
+    ${kpi("Weighted forecast", weightedVal?"AED "+kAED(weightedVal):"—", "stage-probability adjusted")}
+    ${kpi("Won this quarter", wonQVal?"AED "+kAED(wonQVal):"—", Q.label)}
+    ${kpi("Win rate", winRate!=null?winRate+"%":"—", wonAll.length+"W / "+lostN+"L all-time")}
+    ${kpi("Avg deal size", avg?"AED "+kAED(avg):"—", "open, valued deals")}
+    ${kpi("Going cold", cold, "no touch ≥ 5 days")}
+  </div>
+
+  <div class="dash-panel">
+    <h2>${Q.label} target <span class="hint">${settingsSource==="db"?"synced via Supabase":"saved on this device — run the setup SQL to sync across devices"}</span></h2>
+    <div class="dash-2col">
+      <div style="text-align:center">
+        ${gaugeSVG(wonQVal, target)}
+        <div class="target-row" style="justify-content:center">
+          <div class="field"><label for="dashTarget">Quarter target (AED)</label><input id="dashTarget" type="number" min="0" step="10000" value="${target||""}"></div>
+          <button class="btn btn-go" style="padding:10px 18px" onclick="saveDashSettings()">Save</button>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:13.5px;color:var(--muted);margin-bottom:4px">
+          ${target? `Gap to target: <b style="color:var(--ink)">AED ${kAED(gap)}</b>` : "Set a quarterly target to unlock gap & coverage tracking."}
+          ${coverage!=null? ` · weighted pipeline closing by ${fmtD(Q.endStr)} covers <b style="color:${coverage>=1?"var(--go)":"var(--red)"}">${coverage.toFixed(1)}×</b> of it (healthy ≥ 1.0×, comfortable ≥ 3× unweighted)`:""}
+        </p>
+        <div class="scenarios">
+          ${scen("Commit (late-stage)", commitQ)}
+          ${scen("Likely (weighted)", likelyQ)}
+          ${scen("Best case (all open)", bestQ)}
+        </div>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:8px">Scenarios = won so far + open deals with an est. close date on/before quarter end. ${open.filter(r=>!r.est_close_date).length? open.filter(r=>!r.est_close_date).length+" open deals have no close date and are excluded — set dates to sharpen the forecast.":""}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dash-panel">
+    <h2>Forecast by expected close month <span class="hint">based on est. close dates</span></h2>
+    ${forecastSVG(buckets)}
+    <div class="legend">
+      <span><i style="background:#C9D4D9"></i>Best case (all open)</span>
+      <span><i style="background:var(--go)"></i>Likely (weighted)</span>
+      <span><i style="background:var(--blue)"></i>Commit (Proposal + Negotiation)</span>
+    </div>
+    <div class="prob-row">
+      ${OPEN_STAGES.map(st=>`<div class="field"><label for="prob-${st}">${st} %</label><input id="prob-${st}" type="number" min="0" max="100" value="${settings.probs[st]??0}"></div>`).join("")}
+      <button class="btn" style="padding:8px 14px" onclick="saveDashSettings()">Update probabilities</button>
+    </div>
+  </div>
+
+  <div class="dash-panel">
+    <h2>Funnel <span class="hint">count · open value per stage · % advancing (current snapshot)</span></h2>
+    ${funnelHTML()}
+  </div>
+
+  <div class="dash-2col">
+    <div class="dash-panel" style="margin-bottom:0">
+      <h2>Pipeline by source</h2>
+      ${breakdownHTML("lead_source")}
+    </div>
+    <div class="dash-panel" style="margin-bottom:0">
+      <h2>Pipeline by product</h2>
+      ${breakdownHTML("product")}
+    </div>
+  </div>`;
 }
 
 /* ================= WEEKLY SYNC ================= */
