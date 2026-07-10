@@ -132,6 +132,18 @@ details.more .grid2{margin-top:12px}
 .sync-item .k{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
 .sync-item .grow{flex:1}
 
+/* ---------- inbox / do-now ---------- */
+.donow{background:var(--surface);border:2px solid var(--ink);border-radius:var(--radius);padding:12px 14px;margin-bottom:18px}
+.donow h2{font-size:19px;text-transform:uppercase;margin-bottom:8px}
+.donow-row{display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--soft);font-size:14px;cursor:pointer;flex-wrap:wrap}
+.donow-row:hover{background:var(--soft)}
+.dn-rank{font-family:var(--font-display);font-size:17px;font-weight:700;color:var(--muted);flex:0 0 20px;text-align:right}
+.dn-what{color:var(--muted);flex:1;min-width:140px}
+.src-badge{font-family:var(--font-mono);font-size:11px;border-radius:4px;padding:2px 7px}
+.src-Email{background:var(--amber-bg);color:var(--amber)}
+.src-Teams{background:var(--blue-bg);color:var(--blue)}
+.src-WhatsApp{background:var(--green-bg);color:var(--go-dark)}
+.src-Phone,.src-Walk-in,.src-Thought{background:var(--soft);color:var(--muted)}
 /* ---------- today grid / dashboard ---------- */
 .today-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 @media(max-width:760px){.today-grid{grid-template-columns:1fr}}
@@ -187,7 +199,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 
 <div id="authView" class="auth-wrap hidden">
   <div class="panel">
-    <h1>My <span style="color:var(--go)">Pipeline</span></h1>
+    <h1>My <span style="color:var(--go)">Pipeline</span> <small class="verTag" style="font-size:13px;color:var(--muted);font-weight:500"></small></h1>
     <p class="sub">Sign in to open your pipeline.</p>
     <div id="setupNote" class="setup-note hidden">
       <b>Not configured yet.</b> Open <code>index.html</code> and paste your Supabase URL and anon key into the two lines near the top (marked <code>EDIT THESE TWO LINES</code>), then reload. Full steps are in the setup guide.
@@ -204,12 +216,13 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 <div id="appView" class="hidden">
 <header>
   <div class="hd-top">
-    <h1>My <span>Pipeline</span></h1>
+    <h1>My <span>Pipeline</span> <small class="verTag" style="font-size:12px;color:#7BC4B3;font-weight:500;letter-spacing:.06em"></small></h1>
     <span class="chip" id="chipMove"></span>
     <span class="chip" id="chipValue"></span>
     <button class="signout" onclick="signOut()">Sign out</button>
   </div>
   <nav>
+    <button id="tab-inbox" onclick="setTab('inbox')">Inbox <span class="n" id="inboxCount"></span></button>
     <button id="tab-today" class="on" onclick="setTab('today')">Today <span class="n" id="todayCount"></span></button>
     <button id="tab-dash" onclick="setTab('dash')">Dashboard</button>
     <button id="tab-pipeline" onclick="setTab('pipeline')">Pipeline</button>
@@ -221,6 +234,24 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 </header>
 
 <main>
+  <div id="view-inbox" class="hidden">
+    <div class="panel">
+      <h2>Capture — 10 seconds, then back to work</h2>
+      <div class="task-add">
+        <select id="ibSource" style="flex:0 0 108px;width:auto"><option>Thought</option><option>Email</option><option>Teams</option><option>WhatsApp</option><option>Phone</option><option>Walk-in</option></select>
+        <input id="ibWho" type="text" list="companyList" placeholder="Who (optional)" style="flex:1;min-width:120px">
+        <input id="ibNote" type="text" placeholder="What? (Enter to capture)" style="flex:3;min-width:180px">
+        <select id="ibPriority" style="flex:0 0 92px;width:auto"><option>Medium</option><option>High</option><option>Low</option></select>
+        <input id="ibRemind" type="datetime-local" style="flex:0 0 190px">
+        <button class="btn btn-go" onclick="captureItem()">Capture</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:8px">Interruption? Log it here (or via your Power Automate flows) and get back to what you were doing. Triage once or twice a day: Done · → Task · → Lead · Park.</p>
+    </div>
+    <div class="filters" id="ibFilters"></div>
+    <div id="ibList"></div>
+    <div class="panel" id="ibStats" style="font-size:13.5px"></div>
+  </div>
+
   <div id="view-today"></div>
 
   <div id="view-dash" class="hidden">
@@ -268,6 +299,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
       <div class="filters" id="tgCats" style="margin-bottom:10px"></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <select id="tgCountry" style="width:auto;min-width:170px" onchange="renderTargets()"></select>
+        <select id="tgIndustry" style="width:auto;min-width:170px" onchange="renderTargets()"></select>
         <input id="tgSearch" type="text" placeholder="Search account…" style="flex:1;min-width:160px" oninput="renderTargets()">
       </div>
       <p style="font-size:12.5px;color:var(--muted);margin-top:8px">Accounts from your CRM history that have shown interest in a solution but <b>never closed</b> on it. Fix a country with its dropdown — it's saved instantly.</p>
@@ -354,6 +386,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
   <div class="field"><label for="eNext">Next step (what YOU will do)</label><input id="eNext" type="text"></div>
   <div class="field"><label for="eNotes">Notes</label><textarea id="eNotes" rows="3"></textarea></div>
   <p class="mono" id="eMeta" style="font-size:12px;color:var(--muted)"></p>
+  <div id="eCross" style="margin:8px 0 2px"></div>
   <div class="drawer-foot">
     <button class="btn btn-go" style="padding:10px 22px" onclick="saveEdit()">Save</button>
     <button class="btn" onclick="closeDrawer()">Cancel</button>
@@ -366,7 +399,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 <div class="drawer" id="tlDrawer" role="dialog" aria-label="Company timeline">
   <div class="drawer-h"><h2 id="tlTitle">Timeline</h2><button class="x" onclick="closeTimeline()" aria-label="Close">✕</button></div>
   <div id="tlStats" class="mono" style="font-size:12.5px;color:var(--muted);margin-bottom:12px"></div>
-  <div class="field" style="max-width:280px"><label for="tlCountry">Country</label><select id="tlCountry" onchange="saveCountry()"></select></div>
+  <div class="grid2" style="max-width:560px">
+    <div class="field"><label for="tlCountry">Country</label><select id="tlCountry" onchange="saveCountry()"></select></div>
+    <div class="field"><label for="tlIndustry">Industry</label><select id="tlIndustry" onchange="saveIndustry()"></select></div>
+  </div>
+  <div id="tlCross" style="margin-bottom:14px"></div>
   <div class="task-add" style="margin-bottom:16px">
     <input id="tlTask" type="text" placeholder="Quick task for this company…">
     <input id="tlTaskDue" type="date">
@@ -428,7 +465,11 @@ const WAITING = ["Me","Them","Nobody – closed"];
 let sb = null, rows = [], tab = "today", pipeFilter = "open", editId = null, syncRows = [], syncHeaders = [];
 let tasksRows = [], accounts = [], crmOpps = [], accountsByKey = new Map(), tlKey = null, tgCat = "All";
 let todayFilter = "all", pipeSource = "crm", crmFilter = "open", dashFilter = "open";
+let inboxRows = [], ibFilter = "open";
+const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
+const APP_VERSION = "v6.0";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
+const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
 const crmStatusMatch = (o,f) => f==="all" ? true
   : f==="won" ? o.status==="Won"
@@ -527,11 +568,12 @@ async function fetchAll(table, orderCol){
   return out;
 }
 async function loadRows(){
-  const [p,t,a,o] = await Promise.all([
+  const [p,t,a,o,ib] = await Promise.all([
     fetchAll("pipeline","created_at"), fetchAll("tasks","created_at"),
-    fetchAll("accounts","created_at"), fetchAll("crm_opps","crm_created")
+    fetchAll("accounts","created_at"), fetchAll("crm_opps","crm_created"),
+    fetchAll("inbox","captured_at")
   ]);
-  rows = p; tasksRows = t; accounts = a; crmOpps = o;
+  rows = p; tasksRows = t; accounts = a; crmOpps = o; inboxRows = ib;
   accountsByKey = new Map(accounts.map(x=>[x.name_key, x]));
   renderAll();
 }
@@ -553,7 +595,7 @@ async function dbInsert(rec){
 /* ================= tabs & header ================= */
 function setTab(t){
   tab = t;
-  ["today","dash","pipeline","tasks","targets","add","sync"].forEach(x=>{
+  ["inbox","today","dash","pipeline","tasks","targets","add","sync"].forEach(x=>{
     $("tab-"+x).classList.toggle("on", x===t);
     $("view-"+x).classList.toggle("hidden", x!==t);
   });
@@ -566,7 +608,7 @@ function renderHeader(){
   const urgent = rows.filter(r=>isOpen(r)&&r.waiting_on==="Me").map(urgency).filter(u=>u&&u.score<=2).length;
   $("todayCount").textContent = urgent? urgent : "";
 }
-function renderAll(){ renderHeader(); renderToday(); renderDash(); renderPipeline(); renderTasks(); renderTargets(); fillCompanyList(); }
+function renderAll(){ renderHeader(); renderInbox(); renderToday(); renderDash(); renderPipeline(); renderTasks(); renderTargets(); fillCompanyList(); }
 
 /* ================= TODAY ================= */
 function cardHTML(r, u, lane){
@@ -614,7 +656,7 @@ function renderToday(){
   const nOpp = open.filter(r=>recType(r)==="OPP").length, nLead = open.filter(r=>recType(r)==="LEAD").length;
   const chips = [["all",`All (${open.length})`],["opps",`Opportunities (${nOpp})`],["leads",`Leads (${nLead})`]]
     .map(([k,l])=>`<button class="btn ${todayFilter===k?"on":""}" onclick="todayFilter='${k}';renderToday()">${l}</button>`).join("");
-  let h = `<div class="filters" style="margin-bottom:12px">${chips}</div><div class="today-grid"><div class="lane">
+  let h = doNowHTML() + `<div class="filters" style="margin-bottom:12px">${chips}</div><div class="today-grid"><div class="lane">
     <div class="lane-h"><h2 style="color:var(--red)">My move</h2><span class="cnt">${mine.length}</span>
     <span class="hint">money & overdue first</span></div>`;
   h += mine.length? mine.map(x=>cardHTML(x.r,x.u,"me")).join("") : `<div class="empty">Nothing in your court. Rare. Enjoy it.</div>`;
@@ -623,7 +665,43 @@ function renderToday(){
     <span class="hint">longest wait first</span></div>`;
   h += theirs.length? theirs.map(x=>cardHTML(x.r,x.u,"them")).join("") : `<div class="empty">Not waiting on anyone.</div>`;
   h += `</div></div>`;
+  if(todayFilter!=="leads"){
+    const un = untrackedOpenOpps();
+    h += `<div class="lane" style="margin-top:10px"><div class="lane-h"><h2 style="color:var(--go-dark)">Open in CRM — not on your board</h2><span class="cnt">${un.length}</span>
+      <span class="hint">biggest value first — Track gives it a move owner so it shows above</span></div>`;
+    h += un.length? un.slice(0,40).map(o=>`<div class="card u-money">
+      <div class="card-top">
+        <span class="co" onclick="openTimeline('${String(o.account_key||"").replace(/'/g,"\\'")}')">${esc(o.account||"—")}</span>
+        <span class="badge b-opp">OPP · ${esc(o.crm_stage||"?")}</span>
+        ${o.product?`<span class="badge b-grey">${esc(o.product)}</span>`:""}
+        <span class="val">${fmtAED(o.est_revenue)}</span>
+      </div>
+      <div class="card-line">${esc(o.topic||"")}<span class="why">${o.est_close?` · est. close ${fmtD(o.est_close)}`:""}${o.status==="On Hold"?" · ON HOLD":""}</span></div>
+      <div class="card-actions"><button class="btn btn-go" onclick="trackOpp('${esc(o.crm_id)}')">➕ Track — my move</button></div>
+    </div>`).join("") : `<div class="empty">Every open CRM opportunity is on your board. Clean.</div>`;
+    h += `</div>`;
+  }
   $("view-today").innerHTML = h;
+}
+function untrackedOpenOpps(){
+  const openKeys = new Set(rows.filter(isOpen).map(r=>nameKey(r.company)));
+  return crmOpps.filter(o=>crmStatusMatch(o,"open") && o.account_key && !openKeys.has(o.account_key))
+    .sort((a,b)=>(Number(b.est_revenue)||0)-(Number(a.est_revenue)||0));
+}
+async function trackOpp(crmId){
+  const o = crmOpps.find(x=>x.crm_id===crmId); if(!o) return;
+  const stage = CRM_TO_STAGE[parseInt(o.crm_stage)||10] || "Qualifying";
+  const known = PRODUCTS.includes(o.product);
+  const d = await dbInsert({
+    company: o.account, product: known? o.product : null,
+    stage, waiting_on:"Me", budget_confirmed:"Unknown",
+    est_value_aed: Number(o.est_revenue)||null, est_close_date: o.est_close||null,
+    lead_source: SOURCES.includes(o.lead_source)? o.lead_source : null,
+    notes: [o.topic, known? null : o.product].filter(Boolean).join(" · ") || null,
+    next_step: "Plan next step", last_touch: new Date().toISOString(),
+    crm_status: "in_crm", crm_topic: o.topic||null, crm_last_sync: new Date().toISOString()
+  });
+  if(d){ toast(`${o.account} is now on your board — your move`); renderAll(); }
 }
 function togglePlan(id){ $("plan-"+id).classList.toggle("hidden"); }
 async function savePlan(id){
@@ -797,6 +875,7 @@ function openDrawer(id){
   $("eValue").value=r.est_value_aed||""; $("eClose").value=r.est_close_date||"";
   $("eNextDue").value=r.next_step_due||""; $("eSource").value=r.lead_source||""; $("eCampaign").value=r.campaign||"";
   $("ePhase").value=r.delivery_phase||""; $("eLost").value=r.lost_reason||""; $("eNext").value=r.next_step||""; $("eNotes").value=r.notes||"";
+  $("eCross").innerHTML = crossSellHTML(nameKey(r.company));
   $("eMeta").textContent = `created ${fmtD(r.created_at)} · last touch ${fmtD(r.last_touch)}` + (r.crm_status==="in_crm"?` · ✔ in CRM (${r.crm_topic||"matched"})`:(r.crm_status==="not_in_crm"?" · not in CRM":""));
   $("overlay").classList.add("open"); $("drawer").classList.add("open");
 }
@@ -847,6 +926,8 @@ async function deleteRecord(){
 /* ================= WEEKLY SYNC ================= */
 const dz = () => $("dropzone");
 document.addEventListener("DOMContentLoaded", ()=>{
+  document.querySelectorAll(".verTag").forEach(el=>el.textContent=APP_VERSION);
+  $("ibNote").addEventListener("keydown", e=>{ if(e.key==="Enter") captureItem(); });
   $("fileInput").addEventListener("change", e=>handleFiles(e.target.files));
   const d = dz();
   d.addEventListener("dragover", e=>{e.preventDefault(); d.classList.add("drag");});
@@ -1084,6 +1165,10 @@ function openTimeline(key, fallbackName){
   const name = acc? acc.name : (fallbackName || key);
   $("tlTitle").textContent = name;
   $("tlCountry").innerHTML = countryOptions(acc? acc.country : "Unknown");
+  const ind = (acc && acc.industry) || "Unknown";
+  const iset = new Set(INDUSTRIES); iset.add(ind);
+  $("tlIndustry").innerHTML = [...iset].map(x=>`<option ${x===ind?"selected":""}>${esc(x)}</option>`).join("");
+  $("tlCross").innerHTML = crossSellHTML(key);
   fillTimeline();
   $("overlay").classList.add("open"); $("tlDrawer").classList.add("open");
 }
@@ -1162,11 +1247,16 @@ function renderTargets(){
   const cset = new Set(["All countries"]);
   agg.forEach(a=>{ const acc=accountsByKey.get(a.key); cset.add(acc&&acc.country? acc.country:"Unknown"); });
   cSel.innerHTML = [...cset].map(c=>`<option ${c===prev?"selected":""}>${esc(c)}</option>`).join("");
+  const iSel = $("tgIndustry"); const iPrev = iSel.value || "All industries";
+  const iset = new Set(["All industries"]);
+  agg.forEach(a=>{ const acc=accountsByKey.get(a.key); iset.add((acc&&acc.industry)||"Unknown"); });
+  iSel.innerHTML = [...iset].map(c=>`<option ${c===iPrev?"selected":""}>${esc(c)}</option>`).join("");
   const q = ($("tgSearch").value||"").toLowerCase();
   let list = [...agg.values()].map(a=>({a, g:gaps(a), acc:accountsByKey.get(a.key)}))
     .filter(x=>x.g.length)
     .filter(x=> tgCat==="All" || x.g.includes(tgCat))
     .filter(x=>{ const co = x.acc&&x.acc.country? x.acc.country:"Unknown"; return cSel.value==="All countries" || co===cSel.value; })
+    .filter(x=>{ const ind = (x.acc&&x.acc.industry)||"Unknown"; return iSel.value==="All industries" || ind===iSel.value; })
     .filter(x=> !q || x.a.name.toLowerCase().includes(q));
   list.sort((x,y)=> (y.a.open-x.a.open) || (y.a.lost-x.a.lost));
   let h = `<tr><th>Account</th><th>Country</th><th>${tgCat==="All"?"Target for":"Also target for"}</th><th>Client?</th><th>Open opps</th><th>Lost value</th><th>Last CRM activity</th></tr>`;
@@ -1174,7 +1264,7 @@ function renderTargets(){
     const co = x.acc&&x.acc.country? x.acc.country:"Unknown";
     const badges = (tgCat==="All"? x.g : x.g.filter(c=>c!==tgCat)).map(c=>`<span class="badge b-blue tg-badge">${esc(c)}</span>`).join(" ");
     h += `<tr onclick="openTimeline('${x.a.key.replace(/'/g,"\\'")}')">
-      <td><b>${esc(x.a.name)}</b></td>
+      <td><b>${esc(x.a.name)}</b>${x.acc&&x.acc.industry&&x.acc.industry!=="Unknown"?`<div class="sub">${esc(x.acc.industry)}</div>`:""}</td>
       <td onclick="event.stopPropagation()"><select style="width:auto;padding:4px 6px;font-size:13px" onchange="setAccCountry('${x.a.key.replace(/'/g,"\\'")}', this.value)">${countryOptions(co)}</select></td>
       <td>${badges||"—"}</td>
       <td>${x.a.wonAny? '<span class="badge b-money">existing client</span>':"—"}</td>
@@ -1239,6 +1329,159 @@ async function importOpps(){
   prog.textContent = "";
   toast(`${recs.length} opportunities imported — Targets is up to date`);
   renderAll(); setTab("targets");
+}
+
+/* ================= INBOX (capture management) ================= */
+async function captureItem(){
+  const note = $("ibNote").value.trim();
+  if(!note){ toast("Say what it is — one line"); return; }
+  const who = $("ibWho").value.trim() || null;
+  const rec = {
+    source: $("ibSource").value, who, note,
+    priority: $("ibPriority").value,
+    remind_at: $("ibRemind").value? new Date($("ibRemind").value).toISOString() : null,
+    status: "new", company_key: who? nameKey(who) : null
+  };
+  const { data, error } = await sb.from("inbox").insert(rec).select().single();
+  if(error){
+    toast(error.code==="42P01"? "Run migrate_v3_to_v4.sql first — inbox table missing" : "Save failed: "+error.message);
+    return;
+  }
+  inboxRows.unshift(data);
+  $("ibNote").value=""; $("ibWho").value=""; $("ibRemind").value="";
+  toast("Captured — back to what you were doing");
+  renderInbox(); renderHeader();
+}
+async function ibSet(id, patch){
+  const { error } = await sb.from("inbox").update(patch).eq("id", id);
+  if(error){ toast("Save failed: "+error.message); return false; }
+  Object.assign(inboxRows.find(x=>x.id===id)||{}, patch);
+  renderInbox(); return true;
+}
+async function ibDelete(id){
+  const { error } = await sb.from("inbox").delete().eq("id", id);
+  if(error){ toast("Delete failed: "+error.message); return; }
+  inboxRows = inboxRows.filter(x=>x.id!==id);
+  renderInbox();
+}
+async function ibToTask(id){
+  const it = inboxRows.find(x=>x.id===id); if(!it) return;
+  const due = it.remind_at? String(it.remind_at).slice(0,10) : todayStr();
+  await createTask(it.who || "General", it.note, due);
+  await ibSet(id, {status:"converted"});
+  toast("Now a task" + (it.who? " for "+it.who : ""));
+}
+function ibToLead(id){
+  const it = inboxRows.find(x=>x.id===id); if(!it) return;
+  $("aCompany").value = it.who || ""; $("aNotes").value = it.note;
+  ibSet(id, {status:"converted"});
+  setTab("add"); toast("Prefilled — finish the lead form");
+}
+const fmtDT = d => d? new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}) + " " + new Date(d).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : "—";
+function renderInbox(){
+  if(!$("ibList")) return;
+  const now = new Date().toISOString();
+  const isDue = x => x.status==="new" && x.remind_at && x.remind_at <= now;
+  const counts = {
+    open: inboxRows.filter(x=>x.status==="new").length,
+    parked: inboxRows.filter(x=>x.status==="parked").length,
+    done: inboxRows.filter(x=>x.status==="done"||x.status==="converted").length,
+    all: inboxRows.length
+  };
+  $("ibFilters").innerHTML = [["open","New"],["parked","Parked"],["done","Processed"],["all","All"]]
+    .map(([k,l])=>`<button class="btn ${ibFilter===k?"on":""}" onclick="ibFilter='${k}';renderInbox()">${l} (${counts[k]})</button>`).join("");
+  let list = inboxRows.filter(x=>
+    ibFilter==="all" ? true :
+    ibFilter==="open" ? x.status==="new" :
+    ibFilter==="parked" ? x.status==="parked" :
+    (x.status==="done"||x.status==="converted"));
+  list = list.slice().sort((a,b)=> (isDue(b)-isDue(a)) || ((b.priority==="High")-(a.priority==="High")) || (b.captured_at<a.captured_at?-1:1));
+  const item = x => {
+    const due = isDue(x);
+    const co = x.who && accountsByKey.has(nameKey(x.who));
+    return `<div class="task-item" style="${due?"border-left:4px solid var(--red)":""}">
+      <span class="k mono" style="font-size:11.5px;color:var(--muted);flex:0 0 92px">${fmtDT(x.captured_at)}</span>
+      <span class="src-badge src-${esc((x.source||"Thought").replace(/\s/g,"-"))}">${esc(x.source||"?")}</span>
+      ${x.who? (co? `<span class="t-co" onclick="openTimeline(nameKey('${esc(x.who).replace(/'/g,"\\'")}'),'${esc(x.who).replace(/'/g,"\\'")}')">${esc(x.who)}</span>` : `<b>${esc(x.who)}</b>`) : ""}
+      <span class="t-title">${esc(x.note)}</span>
+      ${x.priority==="High"? `<span class="badge b-red">HIGH</span>`:""}
+      ${x.remind_at? `<span class="badge ${due?"b-red":"b-grey"}">${due?"⏰ DUE — ":""}${fmtDT(x.remind_at)}</span>`:""}
+      ${x.status==="new"? `
+        <button class="btn" style="padding:4px 10px" onclick="ibSet('${x.id}',{status:'done'})">✓</button>
+        <button class="btn" style="padding:4px 10px" onclick="ibToTask('${x.id}')">→ Task</button>
+        <button class="btn" style="padding:4px 10px" onclick="ibToLead('${x.id}')">→ Lead</button>
+        <button class="btn btn-ghost" style="padding:4px 10px" onclick="ibSet('${x.id}',{status:'parked'})">Park</button>`
+      : x.status==="parked"? `
+        <button class="btn" style="padding:4px 10px" onclick="ibSet('${x.id}',{status:'new'})">Unpark</button>
+        <button class="btn" style="padding:4px 10px" onclick="ibToTask('${x.id}')">→ Task</button>`
+      : `<span class="badge b-grey">${esc(x.status)}</span>`}
+      <button class="btn btn-ghost" style="padding:4px 8px;color:var(--muted)" onclick="ibDelete('${x.id}')">✕</button>
+    </div>`;
+  };
+  $("ibList").innerHTML = list.length? list.map(item).join("") : `<div class="empty">${ibFilter==="open"?"Inbox zero. Protect it.":"Nothing here."}</div>`;
+  const today = todayStr();
+  const todays = inboxRows.filter(x=>String(x.captured_at||"").slice(0,10)===today);
+  const bySrc = {};
+  todays.forEach(x=>{ bySrc[x.source||"?"]=(bySrc[x.source||"?"]||0)+1; });
+  $("ibStats").innerHTML = `<b>Interruptions captured today: ${todays.length}</b>` +
+    (todays.length? ` <span style="color:var(--muted)">· ${Object.entries(bySrc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)} ${v}`).join(" · ")}</span>`:"") +
+    `<span style="color:var(--muted)"> — that's where your attention went.</span>`;
+  $("inboxCount").textContent = counts.open? counts.open : "";
+}
+
+/* ================= DO NOW (revenue impact score) ================= */
+function impactScore(value, prob, staleDays){
+  return (Number(value)||0) * prob * (1 + Math.min(staleDays||0,14)/7);
+}
+function doNowItems(){
+  const items = [];
+  rows.filter(r=>isOpen(r) && r.waiting_on==="Me").forEach(r=>{
+    const u = urgency(r); if(!u) return;
+    let sc = impactScore(r.est_value_aed, (STAGE_PROB[r.stage]||5)/100, daysSince(r.last_touch));
+    if(u.score===0) sc += 1e9; else if(u.score<=2) sc *= 3;
+    items.push({t:"pipe", id:r.id, key:nameKey(r.company), co:r.company, what:r.next_step||"Plan next step",
+                val:r.est_value_aed, why:u.badge[1], bcls:u.badge[0], sc});
+  });
+  untrackedOpenOpps().forEach(o=>{
+    const sc = impactScore(o.est_revenue, Math.max(parseInt(o.crm_stage)||5,1)/100, daysSince(o.crm_created));
+    items.push({t:"crm", id:o.crm_id, key:o.account_key, co:o.account, what:(o.topic||o.product||"opportunity")+" — not on your board",
+                val:o.est_revenue, why:"UNTRACKED", bcls:"b-amber", sc});
+  });
+  return items.sort((a,b)=>b.sc-a.sc).slice(0,10);
+}
+function doNowHTML(){
+  const items = doNowItems();
+  if(!items.length) return "";
+  return `<div class="donow"><h2>Do now — your top ${items.length}</h2>` + items.map((x,i)=>
+    `<div class="donow-row" onclick="${x.t==="pipe"? `openDrawer('${x.id}')` : `openTimeline('${String(x.key||"").replace(/'/g,"\\'")}')`}">
+      <span class="dn-rank">${i+1}</span>
+      <b>${esc(x.co)}</b>
+      <span class="dn-what">${esc(x.what)}</span>
+      <span class="badge ${x.bcls}">${esc(x.why)}</span>
+      ${x.t==="crm"? `<button class="btn btn-go" style="padding:4px 12px" onclick="event.stopPropagation();trackOpp('${esc(x.id)}')">Track</button>`:""}
+      <span class="val mono" style="margin-left:auto">${fmtAED(x.val)}</span>
+    </div>`).join("") + `<p style="font-size:12px;color:var(--muted);margin-top:8px">Value × stage probability × days untouched. Clear these ten and the day counts.</p></div>`;
+}
+
+/* ================= CROSS-SELL & INDUSTRY ================= */
+function crossSellHTML(key){
+  const agg = targetAgg().get(key);
+  if(!agg) return "";
+  const chips = TG_CATS.map(c=>{
+    if(agg.won.has(c)) return `<span class="badge b-money">✓ ${esc(c)}</span>`;
+    if(agg.cats.has(c)) return `<span class="badge b-blue">● ${esc(c)}</span>`;
+    return `<span class="badge b-grey" style="opacity:.6">○ ${esc(c)}</span>`;
+  }).join(" ");
+  return `<div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Offerings — ✓ won · ● interested, never closed · ○ never explored</div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px">${chips}</div>`;
+}
+async function saveIndustry(){
+  const acc = accountsByKey.get(tlKey);
+  if(!acc){ toast("Account not found — import opportunities first"); return; }
+  const val = $("tlIndustry").value;
+  const { error } = await sb.from("accounts").update({ industry: val, updated_at: new Date().toISOString() }).eq("id", acc.id);
+  if(error){ toast(error.code==="42703"? "Run migrate_v3_to_v4.sql first — industry column missing" : "Save failed: "+error.message); return; }
+  acc.industry = val; toast(`${acc.name} → ${val}`);
 }
 </script>
 </body>
