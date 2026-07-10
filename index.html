@@ -132,6 +132,20 @@ details.more .grid2{margin-top:12px}
 .sync-item .k{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
 .sync-item .grow{flex:1}
 
+/* ---------- today grid / dashboard ---------- */
+.today-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media(max-width:760px){.today-grid{grid-template-columns:1fr}}
+.b-opp{background:var(--green-bg);color:var(--go-dark)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.kpi .v{font-family:var(--font-display);font-size:25px;font-weight:700;white-space:nowrap}
+.kpi .l{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+.bar-l{flex:0 0 112px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:var(--soft);border-radius:6px;height:18px;overflow:hidden}
+.bar-fill{display:block;height:100%;background:var(--go);border-radius:6px;min-width:2px}
+.bar-fill.alt{background:var(--blue)}
+.bar-v{flex:0 0 auto;color:var(--muted);font-size:12px;font-family:var(--font-mono)}
 /* ---------- tasks / timeline / targets ---------- */
 .task-add{display:flex;gap:8px;flex-wrap:wrap}
 .task-add input[type=text]{flex:2;min-width:150px}
@@ -197,6 +211,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
   </div>
   <nav>
     <button id="tab-today" class="on" onclick="setTab('today')">Today <span class="n" id="todayCount"></span></button>
+    <button id="tab-dash" onclick="setTab('dash')">Dashboard</button>
     <button id="tab-pipeline" onclick="setTab('pipeline')">Pipeline</button>
     <button id="tab-tasks" onclick="setTab('tasks')">Tasks <span class="n" id="taskCount"></span></button>
     <button id="tab-targets" onclick="setTab('targets')">Targets</button>
@@ -207,6 +222,25 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 
 <main>
   <div id="view-today"></div>
+
+  <div id="view-dash" class="hidden">
+    <div class="panel" style="padding:14px 18px">
+      <div class="filters" id="dashFilters" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <select id="dashProduct" style="width:auto;min-width:180px" onchange="renderDash()"></select>
+        <span style="font-size:12.5px;color:var(--muted)">Everything below is your CRM opportunity history — refresh it via Weekly sync.</span>
+      </div>
+    </div>
+    <div class="kpi-grid" id="dashKpis"></div>
+    <div class="grid2" style="gap:16px">
+      <div class="panel"><h2>Value by stage</h2><div id="dashStage"></div></div>
+      <div class="panel"><h2>Value by product</h2><div id="dashProd"></div></div>
+    </div>
+    <div class="panel"><h2 id="dashTblTitle">Opportunities</h2>
+      <div class="tbl-wrap" style="border:none;border-radius:0"><table id="dashTable"></table></div>
+      <p class="totals" id="dashTotals"></p>
+    </div>
+  </div>
 
   <div id="view-pipeline" class="hidden">
     <div class="filters" id="pipeFilters"></div>
@@ -393,6 +427,13 @@ const WAITING = ["Me","Them","Nobody – closed"];
 /* ================= state ================= */
 let sb = null, rows = [], tab = "today", pipeFilter = "open", editId = null, syncRows = [], syncHeaders = [];
 let tasksRows = [], accounts = [], crmOpps = [], accountsByKey = new Map(), tlKey = null, tgCat = "All";
+let todayFilter = "all", pipeSource = "crm", crmFilter = "open", dashFilter = "open";
+const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
+const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
+const crmStatusMatch = (o,f) => f==="all" ? true
+  : f==="won" ? o.status==="Won"
+  : f==="lost" ? (o.status||"").startsWith("Lost")
+  : (o.status==="In Progress"||o.status==="On Hold");
 
 /* ================= helpers ================= */
 const $ = id => document.getElementById(id);
@@ -512,7 +553,7 @@ async function dbInsert(rec){
 /* ================= tabs & header ================= */
 function setTab(t){
   tab = t;
-  ["today","pipeline","tasks","targets","add","sync"].forEach(x=>{
+  ["today","dash","pipeline","tasks","targets","add","sync"].forEach(x=>{
     $("tab-"+x).classList.toggle("on", x===t);
     $("view-"+x).classList.toggle("hidden", x!==t);
   });
@@ -525,7 +566,7 @@ function renderHeader(){
   const urgent = rows.filter(r=>isOpen(r)&&r.waiting_on==="Me").map(urgency).filter(u=>u&&u.score<=2).length;
   $("todayCount").textContent = urgent? urgent : "";
 }
-function renderAll(){ renderHeader(); renderToday(); renderPipeline(); renderTasks(); renderTargets(); fillCompanyList(); }
+function renderAll(){ renderHeader(); renderToday(); renderDash(); renderPipeline(); renderTasks(); renderTargets(); fillCompanyList(); }
 
 /* ================= TODAY ================= */
 function cardHTML(r, u, lane){
@@ -547,6 +588,7 @@ function cardHTML(r, u, lane){
   return `<div class="card ${u.cls}" onclick="openDrawer('${r.id}')">
     <div class="card-top">
       <span class="co">${esc(r.company)}</span>
+      <span class="badge ${recType(r)==="OPP"?"b-opp":"b-grey"}">${recType(r)} · ${esc(r.stage)}</span>
       <span class="badge ${u.badge[0]}">${u.badge[1]}</span>
       ${r.product?`<span class="badge b-grey">${esc(r.product)}</span>`:""}
       ${val}
@@ -562,21 +604,25 @@ function cardHTML(r, u, lane){
 }
 function renderToday(){
   const open = rows.filter(isOpen);
-  const mine = open.filter(r=>r.waiting_on==="Me")
+  const flt = r => todayFilter==="all" || (todayFilter==="opps" ? recType(r)==="OPP" : recType(r)==="LEAD");
+  const mine = open.filter(r=>r.waiting_on==="Me" && flt(r))
     .map(r=>({r, u:urgency(r)})).filter(x=>x.u)
     .sort((a,b)=> a.u.score-b.u.score || new Date(a.r.last_touch||0)-new Date(b.r.last_touch||0));
-  const theirs = open.filter(r=>r.waiting_on==="Them")
+  const theirs = open.filter(r=>r.waiting_on==="Them" && flt(r))
     .map(r=>({r, u:{cls:"u-blue",badge:["b-blue","THEIR MOVE"],why:"",score:9}}))
     .sort((a,b)=> new Date(a.r.last_touch||0)-new Date(b.r.last_touch||0));
-  let h = `<div class="lane">
+  const nOpp = open.filter(r=>recType(r)==="OPP").length, nLead = open.filter(r=>recType(r)==="LEAD").length;
+  const chips = [["all",`All (${open.length})`],["opps",`Opportunities (${nOpp})`],["leads",`Leads (${nLead})`]]
+    .map(([k,l])=>`<button class="btn ${todayFilter===k?"on":""}" onclick="todayFilter='${k}';renderToday()">${l}</button>`).join("");
+  let h = `<div class="filters" style="margin-bottom:12px">${chips}</div><div class="today-grid"><div class="lane">
     <div class="lane-h"><h2 style="color:var(--red)">My move</h2><span class="cnt">${mine.length}</span>
-    <span class="hint">money & overdue float to the top — clear top-down</span></div>`;
+    <span class="hint">money & overdue first</span></div>`;
   h += mine.length? mine.map(x=>cardHTML(x.r,x.u,"me")).join("") : `<div class="empty">Nothing in your court. Rare. Enjoy it.</div>`;
   h += `</div><div class="lane">
     <div class="lane-h"><h2 style="color:var(--blue)">Their move</h2><span class="cnt">${theirs.length}</span>
-    <span class="hint">longest wait first — tap when they reply</span></div>`;
+    <span class="hint">longest wait first</span></div>`;
   h += theirs.length? theirs.map(x=>cardHTML(x.r,x.u,"them")).join("") : `<div class="empty">Not waiting on anyone.</div>`;
-  h += `</div>`;
+  h += `</div></div>`;
   $("view-today").innerHTML = h;
 }
 function togglePlan(id){ $("plan-"+id).classList.toggle("hidden"); }
@@ -610,7 +656,10 @@ function pipeRows(){
   }
 }
 function renderPipeline(){
-  $("pipeFilters").innerHTML = FILTERS.map(([k,l])=>`<button class="btn ${pipeFilter===k?"on":""}" onclick="pipeFilter='${k}';renderPipeline()">${l}</button>`).join("");
+  const srcBtns = [["crm",`All CRM opportunities (${crmOpps.length})`],["mine",`My working list (${rows.length})`]]
+    .map(([k,l])=>`<button class="btn ${pipeSource===k?"on":""}" style="${pipeSource===k?"":"opacity:.75"}" onclick="pipeSource='${k}';renderPipeline()">${l}</button>`).join("");
+  if(pipeSource==="crm"){ renderPipelineCrm(srcBtns); return; }
+  $("pipeFilters").innerHTML = srcBtns + `<span style="flex-basis:100%;height:0"></span>` + FILTERS.map(([k,l])=>`<button class="btn ${pipeFilter===k?"on":""}" onclick="pipeFilter='${k}';renderPipeline()">${l}</button>`).join("");
   const list = pipeRows();
   const byStage = {};
   list.forEach(r=>{ (byStage[r.stage] = byStage[r.stage]||[]).push(r); });
@@ -637,6 +686,83 @@ function renderPipeline(){
   const total = active.reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
   const weighted = active.reduce((s,r)=>s+(Number(r.est_value_aed)||0)*STAGE_PROB[r.stage]/100,0);
   $("pipeTotals").textContent = `${list.length} records · open value ${fmtAED(total)} · weighted ${fmtAED(Math.round(weighted))}`;
+}
+const CRM_FILTERS = [["open","Open"],["won","Won"],["lost","Lost"],["all","All"]];
+function renderPipelineCrm(srcBtns){
+  $("pipeFilters").innerHTML = srcBtns + `<span style="flex-basis:100%;height:0"></span>`
+    + CRM_FILTERS.map(([k,l])=>`<button class="btn ${crmFilter===k?"on":""}" onclick="crmFilter='${k}';renderPipeline()">${l}</button>`).join("");
+  const list = crmOpps.filter(o=>crmStatusMatch(o,crmFilter));
+  const by = {};
+  list.forEach(o=>{ const st = o.crm_stage||"(no stage)"; (by[st]=by[st]||[]).push(o); });
+  const stages = [...CRM_STAGE_ORDER.filter(st=>by[st]), ...Object.keys(by).filter(st=>!CRM_STAGE_ORDER.includes(st)).sort()];
+  let h = `<tr><th>Project / account</th><th>Product</th><th>Status</th><th>Value</th><th>Est. close</th><th>Created</th></tr>`;
+  if(!list.length) h += `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No CRM opportunities${crmFilter!=="all"?" in this filter":""} — run migrate_v2_to_v3.sql or import an export via Weekly sync.</td></tr>`;
+  stages.forEach(st=>{
+    const grp = by[st];
+    const gv = grp.reduce((s,o)=>s+(Number(o.est_revenue)||0),0);
+    h += `<tr class="stage-grp"><td colspan="6">${esc(st)} · ${grp.length} · ${fmtAED(gv)}</td></tr>`;
+    grp.slice().sort((a,b)=>(Number(b.est_revenue)||0)-(Number(a.est_revenue)||0)).forEach(o=>{
+      h += `<tr onclick="openTimeline('${String(o.account_key||"").replace(/'/g,"\\'")}')">
+        <td><b>${esc(o.topic||"—")}</b><div class="sub">${esc(o.account||"")}</div></td>
+        <td>${esc(o.product||"—")}</td>
+        <td>${esc(o.status||"—")}</td>
+        <td class="mono">${fmtAED(o.est_revenue)}</td>
+        <td class="mono">${fmtD(o.est_close)}</td>
+        <td class="mono">${fmtD(o.crm_created)}</td></tr>`;
+    });
+  });
+  $("pipeTable").innerHTML = h;
+  const tot = list.reduce((s,o)=>s+(Number(o.est_revenue)||0),0);
+  $("pipeTotals").textContent = `${list.length} CRM opportunities · value ${fmtAED(tot)} · click a row for the company timeline`;
+}
+
+/* ================= DASHBOARD ================= */
+function barRows(pairs, alt){
+  const max = Math.max(...pairs.map(x=>x[1].v), 1);
+  return pairs.map(([label,d])=>`<div class="bar-row"><span class="bar-l" title="${esc(label)}">${esc(label)}</span>
+    <span class="bar-track"><span class="bar-fill ${alt?"alt":""}" style="width:${Math.round(100*d.v/max)}%"></span></span>
+    <span class="bar-v">${d.n} · ${fmtAED(d.v)}</span></div>`).join("") || `<div class="empty">Nothing here.</div>`;
+}
+function renderDash(){
+  if(!$("dashKpis")) return;
+  $("dashFilters").innerHTML = CRM_FILTERS.map(([k,l])=>`<button class="btn ${dashFilter===k?"on":""}" onclick="dashFilter='${k}';renderDash()">${l==="Open"?"Open (my focus)":l}</button>`).join("");
+  let list = crmOpps.filter(o=>crmStatusMatch(o,dashFilter));
+  const prev = $("dashProduct").value || "All products";
+  const prods = new Set(["All products"]); list.forEach(o=>{ if(o.product) prods.add(o.product); });
+  $("dashProduct").innerHTML = [...prods].sort((a,b)=>a==="All products"?-1:b==="All products"?1:a.localeCompare(b)).map(x=>`<option ${x===prev?"selected":""}>${esc(x)}</option>`).join("");
+  if($("dashProduct").value && $("dashProduct").value!=="All products") list = list.filter(o=>o.product===$("dashProduct").value);
+  const val = o => Number(o.est_revenue)||0;
+  const total = list.reduce((s,o)=>s+val(o),0);
+  const avg = list.length? total/list.length : 0;
+  const weighted = list.reduce((s,o)=>s+val(o)*Math.max(parseInt(o.crm_stage)||5,1)/100,0);
+  const wonN = crmOpps.filter(o=>o.status==="Won").length, lostN = crmOpps.filter(o=>(o.status||"").startsWith("Lost")).length;
+  const mon = todayStr().slice(0,7);
+  const closingM = crmOpps.filter(o=>crmStatusMatch(o,"open") && (o.est_close||"").startsWith(mon));
+  const kpis = [
+    [list.length, dashFilter==="open"?"open opportunities":"opportunities"],
+    [fmtAED(total), "total est. value"],
+    [fmtAED(Math.round(avg)), "avg deal size"],
+    dashFilter==="open"? [fmtAED(Math.round(weighted)), "weighted by stage %"] : [(wonN+lostN? Math.round(100*wonN/(wonN+lostN)):0)+"%", "lifetime win rate"],
+    [closingM.length, "open · closing this month"]
+  ];
+  $("dashKpis").innerHTML = kpis.map(([v,l])=>`<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+  const agg = (keyFn)=>{ const m=new Map(); list.forEach(o=>{ const k=keyFn(o)||"—"; const d=m.get(k)||{v:0,n:0}; d.v+=val(o); d.n++; m.set(k,d); }); return m; };
+  const stM = agg(o=>o.crm_stage);
+  const stPairs = [...CRM_STAGE_ORDER.filter(st=>stM.has(st)).map(st=>[st,stM.get(st)]), ...[...stM.keys()].filter(k=>!CRM_STAGE_ORDER.includes(k)).sort().map(k=>[k,stM.get(k)])];
+  $("dashStage").innerHTML = barRows(stPairs);
+  const prPairs = [...agg(o=>o.product).entries()].sort((a,b)=>b[1].v-a[1].v).slice(0,10);
+  $("dashProd").innerHTML = barRows(prPairs, true);
+  const top = list.slice().sort((a,b)=>val(b)-val(a));
+  const cap = 100;
+  let h = `<tr><th>Project</th><th>Account</th><th>Product</th><th>Stage</th><th>Value</th><th>Est. close</th></tr>`;
+  top.slice(0,cap).forEach(o=>{
+    h += `<tr onclick="openTimeline('${String(o.account_key||"").replace(/'/g,"\\'")}')">
+      <td><b>${esc(o.topic||"—")}</b></td><td>${esc(o.account||"—")}</td>
+      <td>${esc(o.product||"—")}</td><td>${esc(o.crm_stage||"—")}${dashFilter==="all"?`<div class="sub">${esc(o.status||"")}</div>`:""}</td>
+      <td class="mono">${fmtAED(o.est_revenue)}</td><td class="mono">${fmtD(o.est_close)}</td></tr>`;
+  });
+  $("dashTable").innerHTML = h;
+  $("dashTotals").textContent = `${list.length} opportunities · ${fmtAED(total)}` + (top.length>cap? ` · showing top ${cap} by value — use filters to narrow`:"");
 }
 
 /* ================= ADD ================= */
