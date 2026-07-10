@@ -132,6 +132,22 @@ details.more .grid2{margin-top:12px}
 .sync-item .k{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
 .sync-item .grow{flex:1}
 
+/* ---------- tasks / timeline / targets ---------- */
+.task-add{display:flex;gap:8px;flex-wrap:wrap}
+.task-add input[type=text]{flex:2;min-width:150px}
+.task-add input[type=date]{flex:1;min-width:130px}
+.task-item{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin-bottom:6px;font-size:14px;flex-wrap:wrap}
+.task-item.done .t-title{text-decoration:line-through;color:var(--muted)}
+.task-item .t-title{flex:1;min-width:140px}
+.t-co{color:var(--go);font-weight:600;cursor:pointer}
+.t-co:hover{text-decoration:underline}
+.tick{width:22px;height:22px;border-radius:50%;border:2px solid var(--muted);flex:0 0 22px;font-size:12px;line-height:1}
+.tick.on{background:var(--go);border-color:var(--go);color:#fff}
+.tl-item{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--soft);font-size:13.5px;align-items:flex-start}
+.tl-item .tl-d{font-family:var(--font-mono);font-size:12px;color:var(--muted);flex:0 0 78px}
+.tl-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:0 0 9px;margin-top:5px}
+.tl-dot.task{background:var(--blue)}.tl-dot.done{background:var(--go)}.tl-dot.crm{background:var(--amber)}.tl-dot.overdue{background:var(--red)}.tl-dot.due{background:var(--ink)}
+.tg-badge{cursor:default}
 /* ---------- misc ---------- */
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:999px;padding:10px 20px;font-size:14px;z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%}
 #toast.show{opacity:1}
@@ -144,44 +160,14 @@ details.more .grid2{margin-top:12px}
 .setup-note code{font-family:var(--font-mono);font-size:12.5px;background:#fff;padding:1px 5px;border-radius:4px}
 .loading{text-align:center;color:var(--muted);padding:40px 0}
 .hidden{display:none!important}
-
-/* ---------- dashboard ---------- */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
-.kpi .k-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.kpi .k-val{font-family:var(--font-display);font-size:26px;font-weight:700;margin-top:2px}
-.kpi .k-sub{font-family:var(--font-mono);font-size:11.5px;color:var(--muted);margin-top:2px}
-.dash-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
-.dash-panel h2{font-size:19px;font-weight:700;text-transform:uppercase;margin-bottom:12px;border-bottom:2px solid var(--ink);padding-bottom:4px;display:flex;align-items:baseline;gap:10px}
-.dash-panel h2 .hint{font-size:12px;color:var(--muted);font-family:var(--font-body);text-transform:none;letter-spacing:0;margin-left:auto;font-weight:400;text-align:right}
-.dash-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:700px){.dash-2col{grid-template-columns:1fr}}
-.target-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px}
-.target-row .field{margin-bottom:0;flex:1;min-width:150px;max-width:220px}
-.prob-row{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
-.prob-row .field{margin-bottom:0;width:92px}
-.prob-row input{padding:6px 8px;font-size:13px}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
-.scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
-.scen{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--soft)}
-.scen .s-l{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
-.scen .s-v{font-family:var(--font-display);font-size:22px;font-weight:700}
-.scen .s-d{font-family:var(--font-mono);font-size:11.5px;margin-top:1px}
-.bar-row{display:grid;grid-template-columns:150px 1fr 92px;gap:8px;align-items:center;margin-bottom:7px;font-size:13px}
-.bar-row .b-track{background:var(--soft);border-radius:5px;height:18px;overflow:hidden}
-.bar-row .b-fill{height:100%;border-radius:5px;background:var(--go);min-width:2px}
-.bar-row .b-val{font-family:var(--font-mono);font-size:12px;text-align:right;color:var(--muted)}
-.conv-note{font-size:11.5px;color:var(--muted);margin:-3px 0 7px 4px}
-@media(max-width:520px){.bar-row{grid-template-columns:110px 1fr 78px}}
 </style>
 </head>
 <body>
 
 <!-- ====== 1. EDIT THESE TWO LINES AFTER CREATING YOUR SUPABASE PROJECT ====== -->
 <script>
-const SUPABASE_URL      = "https://mlmcxxjytqquvjvvmujp.supabase.co";      // e.g. https://abcdefgh.supabase.co
-const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // Settings → API → anon public key
+const SUPABASE_URL      = "PASTE_YOUR_SUPABASE_URL_HERE";      // e.g. https://abcdefgh.supabase.co
+const SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_KEY_HERE"; // Settings → API → anon public key
 </script>
 <!-- ========================================================================= -->
 
@@ -212,21 +198,48 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
   <nav>
     <button id="tab-today" class="on" onclick="setTab('today')">Today <span class="n" id="todayCount"></span></button>
     <button id="tab-pipeline" onclick="setTab('pipeline')">Pipeline</button>
+    <button id="tab-tasks" onclick="setTab('tasks')">Tasks <span class="n" id="taskCount"></span></button>
+    <button id="tab-targets" onclick="setTab('targets')">Targets</button>
     <button id="tab-add" onclick="setTab('add')">+ Add lead</button>
     <button id="tab-sync" onclick="setTab('sync')">Weekly sync</button>
-    <button id="tab-dash" onclick="setTab('dash')">Dashboard</button>
   </nav>
 </header>
 
 <main>
   <div id="view-today"></div>
 
-  <div id="view-dash" class="hidden"></div>
-
   <div id="view-pipeline" class="hidden">
     <div class="filters" id="pipeFilters"></div>
     <div class="tbl-wrap"><table id="pipeTable"></table></div>
     <p class="totals" id="pipeTotals"></p>
+  </div>
+
+  <div id="view-tasks" class="hidden">
+    <div class="panel">
+      <h2>Something popped into your head? Park it here.</h2>
+      <div class="task-add">
+        <input id="tCompany" type="text" list="companyList" placeholder="Company…">
+        <datalist id="companyList"></datalist>
+        <input id="tTitle" type="text" placeholder="What needs doing?">
+        <input id="tDue" type="date">
+        <button class="btn btn-go" onclick="addTask()">Add</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:8px">Pick a company from the list (or type a new one), say what and when. Click any company name anywhere to see its full timeline.</p>
+    </div>
+    <div id="taskLists"></div>
+  </div>
+
+  <div id="view-targets" class="hidden">
+    <div class="panel" style="padding:14px 18px">
+      <div class="filters" id="tgCats" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <select id="tgCountry" style="width:auto;min-width:170px" onchange="renderTargets()"></select>
+        <input id="tgSearch" type="text" placeholder="Search account…" style="flex:1;min-width:160px" oninput="renderTargets()">
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:8px">Accounts from your CRM history that have shown interest in a solution but <b>never closed</b> on it. Fix a country with its dropdown — it's saved instantly.</p>
+    </div>
+    <div class="tbl-wrap"><table id="tgTable"></table></div>
+    <p class="totals" id="tgTotals"></p>
   </div>
 
   <div id="view-add" class="hidden">
@@ -258,7 +271,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
       <h2>Weekly CRM sync</h2>
       <p style="font-size:14px;color:var(--muted);margin-bottom:14px">
         Drop your D365 <b>Leads</b> and <b>Opportunities</b> exports here (Excel or CSV, both at once is fine).
-        Records are matched to your pipeline by <b>contact email</b> — falling back to <b>email / website domain</b>.
+        Records are matched to your pipeline by <b>contact email</b>, then <b>email / website domain</b>, then <b>company name</b> — so opportunity exports without an email column still match.
         Nothing is written until you press an Apply button.
       </p>
       <div class="dropzone" id="dropzone">
@@ -275,6 +288,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
         <div class="map-row"><label style="margin:0">Topic</label><select id="mapTopic"></select></div>
         <button class="btn btn-go" style="margin-top:8px" onclick="runMatch()">Run match</button>
         <span id="rowsLoaded" class="k" style="font-size:13px;color:var(--muted);margin-left:10px"></span>
+        <div id="importPanel" class="hidden" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"></div>
       </div>
     </div>
     <div id="syncResults"></div>
@@ -283,7 +297,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 </div>
 
 <!-- edit drawer -->
-<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="overlay" id="overlay" onclick="closeDrawer();closeTimeline()"></div>
 <div class="drawer" id="drawer" role="dialog" aria-label="Edit record">
   <div class="drawer-h"><h2 id="dTitle">Edit</h2><button class="x" onclick="closeDrawer()" aria-label="Close">✕</button></div>
   <div class="grid2">
@@ -293,7 +307,6 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <div class="field"><label for="eProduct">Product</label><select id="eProduct"></select></div>
     <div class="field"><label for="eEng">Engagement type</label><select id="eEng"></select></div>
     <div class="field"><label for="eStage">Stage</label><select id="eStage"></select></div>
-            <div class="field" id="lostReasonRow"><label for="eLostReason">Lost reason</label><select id="eLostReason"><option value="">--</option><option>Budget</option><option>Competitor</option><option>Went quiet</option><option>Not interested</option><option>Can't deliver</option></select></div>
     <div class="field"><label for="eBudget">Budget confirmed</label><select id="eBudget"></select></div>
     <div class="field"><label for="eWaiting">Whose move</label><select id="eWaiting"></select></div>
     <div class="field"><label for="eValue">Est. value (AED)</label><input id="eValue" type="number" min="0" step="1000"></div>
@@ -302,6 +315,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <div class="field"><label for="eSource">Lead source</label><select id="eSource"></select></div>
     <div class="field"><label for="eCampaign">Campaign</label><select id="eCampaign"></select></div>
     <div class="field"><label for="ePhase">Delivery phase</label><select id="ePhase"></select></div>
+    <div class="field"><label for="eLost">Lost reason (if lost)</label><select id="eLost"></select></div>
   </div>
   <div class="field"><label for="eNext">Next step (what YOU will do)</label><input id="eNext" type="text"></div>
   <div class="field"><label for="eNotes">Notes</label><textarea id="eNotes" rows="3"></textarea></div>
@@ -309,8 +323,22 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
   <div class="drawer-foot">
     <button class="btn btn-go" style="padding:10px 22px" onclick="saveEdit()">Save</button>
     <button class="btn" onclick="closeDrawer()">Cancel</button>
+    <button class="btn" onclick="timelineFromEdit()">Timeline</button>
     <button class="btn btn-ghost btn-danger" style="margin-left:auto" onclick="deleteRecord()">Delete</button>
   </div>
+</div>
+
+<!-- company timeline drawer -->
+<div class="drawer" id="tlDrawer" role="dialog" aria-label="Company timeline">
+  <div class="drawer-h"><h2 id="tlTitle">Timeline</h2><button class="x" onclick="closeTimeline()" aria-label="Close">✕</button></div>
+  <div id="tlStats" class="mono" style="font-size:12.5px;color:var(--muted);margin-bottom:12px"></div>
+  <div class="field" style="max-width:280px"><label for="tlCountry">Country</label><select id="tlCountry" onchange="saveCountry()"></select></div>
+  <div class="task-add" style="margin-bottom:16px">
+    <input id="tlTask" type="text" placeholder="Quick task for this company…">
+    <input id="tlTaskDue" type="date">
+    <button class="btn btn-go" onclick="addTaskFromTimeline()">Add</button>
+  </div>
+  <div id="tlBody"></div>
 </div>
 
 <div id="toast" role="status"></div>
@@ -318,10 +346,12 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 <script>
 "use strict";
 /* ================= constants ================= */
-const STAGES = ["New","Qualifying","Demo","Proposal","Negotiation","Won","Lost","Nurture"];
-const CLOSED_STAGES = new Set(["Won"]);
+const STAGES = ["New","Qualifying","Demo","Proposal","Negotiation","Won","Nurture","Lost"];
+const STAGE_PROB = {"New":5,"Qualifying":10,"Demo":30,"Proposal":50,"Negotiation":75};
+const CLOSED_STAGES = new Set(["Lost"]);
 const LATE_STAGES = new Set(["Proposal","Negotiation"]);
-const PRODUCTS = ["","Dynamics 365 Business Central","Dynamics 365 F&O","Dynamics 365 CRM","Power BI","Power Platform","Microsoft SharePoint","M 365","Microsoft Azure","Microsoft Copilot","AI Solutions","ISV-HR-BC","ISV-HR-F&O","ISV-PMS-BC","ISV-PMS-F&O","E-Invoicing","Zatca","Dynamics GP","Dynamics AX","Dynamics NAV","Migration","Third Party"];
+const LOST_REASONS = ["","Budget","Competitor","Went quiet","Not interested","Can't deliver"];
+const PRODUCTS = ["","Dynamics 365 Business Central","Dynamics 365 F&O","Dynamics 365 CRM","Power BI","Power Platform","Microsoft SharePoint","M 365","Microsoft Copilot","Microsoft Azure","AI Solutions","ISV-HR-BC","ISV-HR-F&O","ISV-PMS-BC","ISV-PMS-F&O","E-Invoicing","Zatca","Dynamics GP","Dynamics AX","Dynamics NAV","Migration","Third Party"];
 const ENGAGEMENTS = ["","New Implementation","Upgrade / Migration","E-Invoicing Compliance","Support / SLA","Change Request","Licensing","Security","Training"];
 const SOURCES = ["","Info Email","Incoming Call","Existing Client","Website","Microsoft Referral","Self Generated","Partner","Marketing Campaign","WhatsApp","Upselling Opportunities","Gitex","Tawk","App Source","BNI Referral","Other"];
 const CAMPAIGNS = ["","UAE e-Invoicing","SLA Renewal","Copilot / AI","Power BI Analytics"];
@@ -329,13 +359,40 @@ const PHASES = ["","Advance","FRDD Sign-off","Licenses & Development","UAT","Tra
 const MONEY_PHASES = new Set(["Advance","Final Payment"]);
 const GENERIC_DOMAINS = new Set(["gmail.com","hotmail.com","outlook.com","yahoo.com","icloud.com","live.com","aol.com"]);
 const BUDGETS = ["Unknown","Yes","No"];
+const COUNTRIES = ["Unknown","United Arab Emirates","Saudi Arabia","Qatar","Oman","Kuwait","Bahrain","Egypt","Jordan","Iraq","India","Pakistan","Sri Lanka","United Kingdom","Other"];
+const TG_CATS = ["E-Invoicing","D365 BC / NAV","Dynamics GP","Dynamics AX","D365 F&O","Power Platform","AI","Copilot","Power BI"];
+const NAME_SUFFIX = new Set(["llc","fze","fzc","fzco","dmcc","wll","ltd","limited","inc","llp","plc","psc","pjsc","sole","proprietorship","co","company"]);
+function nameKey(s){
+  s = String(s||"").toLowerCase().replace(/\u00ad/g,"").replace(/&/g," and ").replace(/[^a-z0-9 ]/g,"");
+  return s.split(/\s+/).filter(t=>t && !NAME_SUFFIX.has(t)).join(" ");
+}
+function catsOf(product, topic){
+  const p=(product||"").toLowerCase(), t=(topic||"").toLowerCase(), out=[];
+  if(p.includes("e-invoicing")||p.includes("zatca")||/e-?invoic|zatca/.test(t)) out.push("E-Invoicing");
+  if(p.includes("business central")||p.includes("dynamics nav")||p.includes("-bc")) out.push("D365 BC / NAV");
+  if(p.includes("dynamics gp")||/\bgp\b/.test(t)) out.push("Dynamics GP");
+  if(p.includes("dynamics ax")||/\bax\b/.test(t)) out.push("Dynamics AX");
+  if(p.includes("f&o")) out.push("D365 F&O");
+  if(p.includes("power platform")||t.includes("power apps")||t.includes("power automate")||t.includes("power platform")) out.push("Power Platform");
+  if(p.includes("ai solutions")||/\bai\b/.test(t)) out.push("AI");
+  if(p.includes("copilot")||t.includes("copilot")) out.push("Copilot");
+  if(p.includes("power bi")||t.includes("power bi")) out.push("Power BI");
+  return out;
+}
+function mapCrmStatus(s){
+  s = String(s||"");
+  if(s.includes("Won")) return "Won";
+  if(s.includes("Progress")) return "In Progress";
+  if(s.includes("Hold")) return "On Hold";
+  if(s.includes("Budget")) return "Lost – Budget";
+  if(s.includes("Competitor")) return "Lost – Competitor";
+  return s.trim()||null;
+}
 const WAITING = ["Me","Them","Nobody – closed"];
-const OPEN_STAGES = ["New","Qualifying","Demo","Proposal","Negotiation"];
-const STAGE_PROB_DEFAULT = {New:10, Qualifying:20, Demo:40, Proposal:60, Negotiation:80};
 
 /* ================= state ================= */
 let sb = null, rows = [], tab = "today", pipeFilter = "open", editId = null, syncRows = [], syncHeaders = [];
-let settings = { qTarget: 0, probs: Object.assign({}, STAGE_PROB_DEFAULT) }, settingsSource = null, settingsLoaded = false;
+let tasksRows = [], accounts = [], crmOpps = [], accountsByKey = new Map(), tlKey = null, tgCat = "All";
 
 /* ================= helpers ================= */
 const $ = id => document.getElementById(id);
@@ -363,7 +420,7 @@ function fillSelect(el, opts, blankLabel){
 /* ================= urgency model ================= */
 function urgency(r){
   // returns {cls, badge, why, score} — lower score = higher on the list
-  if(r.waiting_on === "Nobody – closed" || CLOSED_STAGES.has(r.stage) && r.stage!=="Won") return null;
+  if(r.waiting_on === "Nobody – closed" || CLOSED_STAGES.has(r.stage) || r.stage==="Nurture") return null;
   if(r.delivery_phase && MONEY_PHASES.has(r.delivery_phase)){
     const d = daysSince(r.phase_since);
     return {cls:"u-money", badge:["b-money","💰 "+r.delivery_phase], why:`payment to chase${d!=null?" · "+d+"d in phase":""}`, score:0};
@@ -380,7 +437,9 @@ function urgency(r){
     return {cls:"u-amber", badge:["b-amber","BUDGET UNKNOWN"], why:"past Demo without budget qualified — ask", score:4};
   return {cls:"", badge:["b-grey","ON TRACK"], why:"", score:5};
 }
-const isOpen = r => !CLOSED_STAGES.has(r.stage) || (r.stage==="Won" && r.delivery_phase && r.delivery_phase!=="Complete");
+const isOpen = r => r.stage==="Won"
+  ? (r.delivery_phase && r.delivery_phase!=="Complete")
+  : (!CLOSED_STAGES.has(r.stage) && r.stage!=="Nurture");
 
 /* ================= auth ================= */
 function configOk(){ return SUPABASE_URL.startsWith("https://") && !SUPABASE_ANON_KEY.startsWith("PASTE"); }
@@ -408,13 +467,31 @@ async function enterApp(){
   fillSelect($("eProduct"),PRODUCTS); fillSelect($("eEng"),ENGAGEMENTS);
   fillSelect($("eStage"),STAGES); fillSelect($("eBudget"),BUDGETS); fillSelect($("eWaiting"),WAITING);
   fillSelect($("eSource"),SOURCES); fillSelect($("eCampaign"),CAMPAIGNS,"— none —"); fillSelect($("ePhase"),PHASES,"— not in delivery —");
+  fillSelect($("eLost"),LOST_REASONS,"— n/a —");
   await loadRows();
 }
+async function fetchAll(table, orderCol){
+  let out = [], from = 0;
+  for(;;){
+    const { data, error } = await sb.from(table).select("*").order(orderCol,{ascending:false}).range(from, from+999);
+    if(error){
+      if(error.code==="42P01") toast(table+" table missing — run migrate_v2_to_v3.sql in Supabase");
+      else toast(table+" load failed: "+error.message);
+      return out;
+    }
+    out = out.concat(data||[]);
+    if(!data || data.length < 1000) break;
+    from += 1000;
+  }
+  return out;
+}
 async function loadRows(){
-  const { data, error } = await sb.from("pipeline").select("*").order("created_at",{ascending:false});
-  if(error){ toast("Load failed: "+error.message); return; }
-  rows = data || [];
-  if(!settingsLoaded){ await loadSettings(); settingsLoaded = true; }
+  const [p,t,a,o] = await Promise.all([
+    fetchAll("pipeline","created_at"), fetchAll("tasks","created_at"),
+    fetchAll("accounts","created_at"), fetchAll("crm_opps","crm_created")
+  ]);
+  rows = p; tasksRows = t; accounts = a; crmOpps = o;
+  accountsByKey = new Map(accounts.map(x=>[x.name_key, x]));
   renderAll();
 }
 
@@ -435,20 +512,20 @@ async function dbInsert(rec){
 /* ================= tabs & header ================= */
 function setTab(t){
   tab = t;
-  ["today","pipeline","add","sync","dash"].forEach(x=>{
+  ["today","pipeline","tasks","targets","add","sync"].forEach(x=>{
     $("tab-"+x).classList.toggle("on", x===t);
     $("view-"+x).classList.toggle("hidden", x!==t);
   });
 }
 function renderHeader(){
   const mine = rows.filter(r=>isOpen(r) && r.waiting_on==="Me").length;
-  const val = rows.filter(r=>OPEN_STAGES.includes(r.stage)).reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
+  const val = rows.filter(r=>STAGE_PROB[r.stage]!=null).reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
   $("chipMove").innerHTML = `my move <b>${mine}</b>`;
   $("chipValue").innerHTML = `open <b>${val?("AED "+Math.round(val/1000)+"k"):"—"}</b>`;
   const urgent = rows.filter(r=>isOpen(r)&&r.waiting_on==="Me").map(urgency).filter(u=>u&&u.score<=2).length;
   $("todayCount").textContent = urgent? urgent : "";
 }
-function renderAll(){ renderHeader(); renderToday(); renderPipeline(); renderDashboard(); }
+function renderAll(){ renderHeader(); renderToday(); renderPipeline(); renderTasks(); renderTargets(); fillCompanyList(); }
 
 /* ================= TODAY ================= */
 function cardHTML(r, u, lane){
@@ -512,6 +589,7 @@ async function flipToThem(id){
   const patch = { waiting_on:"Them", last_touch:new Date().toISOString() };
   if(!r.first_response_sent && (r.stage==="New"||r.stage==="Qualifying")){
     patch.first_response_sent = patch.last_touch;
+    if(r.stage==="New") patch.stage = "Qualifying";
   }
   if(await dbUpdate(id, patch)){ toast(`${r.company}: ball is with them`); renderAll(); }
 }
@@ -521,13 +599,12 @@ async function flipToMe(id){
 }
 
 /* ================= PIPELINE tab ================= */
-const FILTERS = [["open","Open"],["leads","Leads"],["opps","Opportunities"],["delivery","Won / delivery"],["closed","Closed"],["all","All"]];
+const FILTERS = [["open","Open"],["delivery","Won / delivery"],["nurture","Nurture"],["lost","Lost"],["all","All"]];
 function pipeRows(){
   switch(pipeFilter){
-    case "leads": return rows.filter(r=>r.stage==="New"||r.stage==="Qualifying");
-    case "opps": return rows.filter(r=>["Demo","Proposal","Negotiation"].includes(r.stage));
     case "delivery": return rows.filter(r=>r.stage==="Won");
-    case "closed": return rows.filter(r=>CLOSED_STAGES.has(r.stage) && r.stage!=="Won");
+    case "nurture": return rows.filter(r=>r.stage==="Nurture");
+    case "lost": return rows.filter(r=>r.stage==="Lost");
     case "all": return rows.slice();
     default: return rows.filter(r=>isOpen(r) || r.stage==="Won");
   }
@@ -544,8 +621,9 @@ function renderPipeline(){
     grp.forEach(r=>{
       const crm = r.crm_status==="in_crm"?"✔":(r.crm_status==="not_in_crm"?"—":"·");
       const phase = r.delivery_phase? `<div class="sub">📦 ${esc(r.delivery_phase)}${r.phase_since?` · ${daysSince(r.phase_since)}d`:""}</div>`:"";
+      const lost = r.stage==="Lost"&&r.lost_reason? `<div class="sub">✕ ${esc(r.lost_reason)}</div>`:"";
       h += `<tr onclick="openDrawer('${r.id}')">
-        <td><b>${esc(r.company)}</b>${phase}${r.notes?`<div class="sub">${esc(r.notes.slice(0,70))}</div>`:""}</td>
+        <td><b>${esc(r.company)}</b>${phase}${lost}${r.notes?`<div class="sub">${esc(r.notes.slice(0,70))}</div>`:""}</td>
         <td>${esc(r.product||"—")}</td>
         <td>${esc(r.waiting_on)}</td>
         <td>${r.budget_confirmed==="Unknown"&&LATE_STAGES.has(r.stage)?'<span class="badge b-amber">Unknown ⚠</span>':esc(r.budget_confirmed||"—")}</td>
@@ -555,10 +633,10 @@ function renderPipeline(){
     });
   });
   $("pipeTable").innerHTML = h;
-  const opps = list.filter(r=>OPEN_STAGES.includes(r.stage));
-  const total = opps.reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
-  const weighted = opps.reduce((s,r)=>s+(Number(r.est_value_aed)||0)*prob(r),0);
-  $("pipeTotals").textContent = `${list.length} records · open opp value ${fmtAED(total)} · weighted ${fmtAED(Math.round(weighted))}`;
+  const active = list.filter(r=>STAGE_PROB[r.stage]!=null);
+  const total = active.reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
+  const weighted = active.reduce((s,r)=>s+(Number(r.est_value_aed)||0)*STAGE_PROB[r.stage]/100,0);
+  $("pipeTotals").textContent = `${list.length} records · open value ${fmtAED(total)} · weighted ${fmtAED(Math.round(weighted))}`;
 }
 
 /* ================= ADD ================= */
@@ -589,10 +667,10 @@ function openDrawer(id){
   $("dTitle").textContent = r.company;
   $("eCompany").value=r.company; $("eEmail").value=r.contact_email||""; $("eContact").value=r.contact_name||"";
   $("eProduct").value=r.product||""; $("eEng").value=r.engagement_type||"";
-  $("eStage").value=r.stage; $("eBudget").value=r.budget_confirmed||"Unknown"; $("eWaiting").value=r.waiting_on; $("#eLostReason").value=r.lost_reason||"";
+  $("eStage").value=r.stage; $("eBudget").value=r.budget_confirmed||"Unknown"; $("eWaiting").value=r.waiting_on;
   $("eValue").value=r.est_value_aed||""; $("eClose").value=r.est_close_date||"";
   $("eNextDue").value=r.next_step_due||""; $("eSource").value=r.lead_source||""; $("eCampaign").value=r.campaign||"";
-  $("ePhase").value=r.delivery_phase||""; $("eNext").value=r.next_step||""; $("eNotes").value=r.notes||"";
+  $("ePhase").value=r.delivery_phase||""; $("eLost").value=r.lost_reason||""; $("eNext").value=r.next_step||""; $("eNotes").value=r.notes||"";
   $("eMeta").textContent = `created ${fmtD(r.created_at)} · last touch ${fmtD(r.last_touch)}` + (r.crm_status==="in_crm"?` · ✔ in CRM (${r.crm_topic||"matched"})`:(r.crm_status==="not_in_crm"?" · not in CRM":""));
   $("overlay").classList.add("open"); $("drawer").classList.add("open");
 }
@@ -601,7 +679,10 @@ async function saveEdit(){
   const r = rows.find(x=>x.id===editId); if(!r) return;
   const newStage = $("eStage").value, budget = $("eBudget").value;
   if(LATE_STAGES.has(newStage) && budget==="Unknown" && newStage!==r.stage){
-    if(!confirm("Budget is still UNKNOWN — your history says late-stage budget losses are where deals die.\n\nAdvance anyway?")) return;
+    if(!confirm("Budget is still UNKNOWN — no Proposal without a confirmed budget.\nYour history: late-stage budget losses are where deals die.\n\nAdvance anyway?")) return;
+  }
+  if(newStage==="Lost" && !$("eLost").value){
+    toast("Pick a lost reason first — it feeds your loss analysis"); return;
   }
   const email = $("eEmail").value.trim() || null;
   const patch = {
@@ -614,10 +695,10 @@ async function saveEdit(){
     est_close_date: $("eClose").value||null,
     next_step: $("eNext").value.trim()||null, next_step_due: $("eNextDue").value||null,
     lead_source: $("eSource").value||null, campaign: $("eCampaign").value||null,
-    delivery_phase: $("ePhase").value||null, notes: $("eNotes").value.trim()||null,
-      lost_reason: newStage==="Lost" ? $("#eLostReason").value||null : null
+    delivery_phase: $("ePhase").value||null, lost_reason: $("eLost").value||null,
+    notes: $("eNotes").value.trim()||null
   };
-  if(newStage==="Won" && r.stage!=="Won" && rows.length && ("won_date" in rows[0])) patch.won_date = todayStr();
+  if(newStage==="Lost" || newStage==="Nurture") patch.waiting_on = "Nobody – closed";
   // Won handoff: open the delivery track automatically
   if(newStage==="Won" && r.stage!=="Won" && !patch.delivery_phase){
     patch.delivery_phase="Advance"; patch.phase_since=todayStr();
@@ -637,229 +718,6 @@ async function deleteRecord(){
   closeDrawer(); renderAll(); toast("Deleted");
 }
 
-
-/* ================= DASHBOARD ================= */
-const prob = r => (Number(settings.probs[r.stage])||0)/100;
-const kAED = n => n>=1e6 ? (n/1e6).toFixed(2).replace(/\.?0+$/,"")+"M" : (n>=1e3 ? Math.round(n/1e3)+"k" : String(Math.round(n)));
-function quarterInfo(d=new Date()){
-  const q = Math.floor(d.getMonth()/3);
-  const start = new Date(d.getFullYear(), q*3, 1), end = new Date(d.getFullYear(), q*3+3, 0);
-  const iso = x => x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");
-  return { label:"Q"+(q+1)+" "+d.getFullYear(), startStr:iso(start), endStr:iso(end) };
-}
-function wonDateOf(r){
-  if(r.stage!=="Won") return null;
-  return r.won_date || r.est_close_date || r.phase_since || (r.updated_at||r.created_at||"").slice(0,10) || null;
-}
-async function loadSettings(){
-  try{
-    const { data, error } = await sb.from("settings").select("*");
-    if(error) throw error;
-    settingsSource = "db";
-    (data||[]).forEach(s=>{
-      if(s.key==="q_target") settings.qTarget = Number(s.value)||0;
-      if(s.key==="stage_probs" && s.value) Object.assign(settings.probs, s.value);
-    });
-  }catch(e){
-    settingsSource = "local";
-    try{
-      const s = JSON.parse(localStorage.getItem("dash_settings")||"{}");
-      if(s.qTarget!=null) settings.qTarget = Number(s.qTarget)||0;
-      if(s.probs) Object.assign(settings.probs, s.probs);
-    }catch(_){}
-  }
-}
-async function saveSettings(){
-  if(settingsSource==="db"){
-    const { error } = await sb.from("settings").upsert([
-      { key:"q_target", value: settings.qTarget },
-      { key:"stage_probs", value: settings.probs }
-    ]);
-    if(error){ toast("Settings save failed: "+error.message); return; }
-  } else {
-    localStorage.setItem("dash_settings", JSON.stringify({ qTarget: settings.qTarget, probs: settings.probs }));
-  }
-  toast("Dashboard settings saved");
-}
-function saveDashSettings(){
-  settings.qTarget = Number($("dashTarget").value)||0;
-  OPEN_STAGES.forEach(st=>{
-    const v = Number($("prob-"+st).value);
-    if(!isNaN(v)) settings.probs[st] = Math.max(0, Math.min(100, v));
-  });
-  saveSettings();
-  renderDashboard();
-}
-function gaugeSVG(wonV, target){
-  const pct = target>0 ? Math.min(wonV/target, 1) : 0, L = 251.33;
-  return `<svg viewBox="0 0 200 118" style="width:100%;max-width:250px;height:auto">
-    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--line)" stroke-width="15" stroke-linecap="round"/>
-    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="${pct>=1?"var(--go)":(pct>=0.6?"var(--go)":(pct>=0.3?"var(--amber)":"var(--red)"))}" stroke-width="15" stroke-linecap="round" stroke-dasharray="${Math.max(pct*L,0.01).toFixed(1)} 999"/>
-    <text x="100" y="84" text-anchor="middle" font-size="30" font-weight="700" font-family="var(--font-display)" fill="var(--ink)">${target>0? Math.round(100*wonV/target)+"%" : "—"}</text>
-    <text x="100" y="108" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--font-mono)">${target>0? "AED "+kAED(wonV)+" / "+kAED(target) : "set a target below"}</text>
-  </svg>`;
-}
-function forecastSVG(buckets){
-  const W=880, H=252, padL=56, padB=30, padT=14, padR=8;
-  const iw=W-padL-padR, ih=H-padT-padB;
-  const max=Math.max(1, ...buckets.map(b=>b.best));
-  const gw=iw/buckets.length, bw=Math.min(24,(gw-16)/3);
-  let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">`;
-  for(let i=0;i<=4;i++){
-    const y=padT+ih-ih*i/4;
-    s += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
-    s += `<text x="${padL-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--font-mono)">${kAED(max*i/4)}</text>`;
-  }
-  buckets.forEach((b,i)=>{
-    const x0=padL+gw*i+(gw-bw*3-8)/2;
-    [["#C9D4D9",b.best],["var(--go)",b.likely],["var(--blue)",b.commit]].forEach(([c,v],j)=>{
-      const h=ih*v/max, x=x0+j*(bw+4);
-      s += `<rect x="${x.toFixed(1)}" y="${(padT+ih-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h, v>0?2:0).toFixed(1)}" rx="3" fill="${c}"/>`;
-    });
-    s += `<text x="${(padL+gw*i+gw/2).toFixed(1)}" y="${H-9}" text-anchor="middle" font-size="12" fill="var(--muted)">${b.label}</text>`;
-  });
-  return s+"</svg>";
-}
-function funnelHTML(){
-  const FUNNEL=["New","Qualifying","Demo","Proposal","Negotiation","Won"];
-  const idx={}; FUNNEL.forEach((s,i)=>idx[s]=i);
-  const inF = rows.filter(r=>idx[r.stage]!=null);
-  if(!inF.length) return '<p style="color:var(--muted);font-size:13px">No deals yet.</p>';
-  const reach = FUNNEL.map((_,i)=> inF.filter(r=>idx[r.stage]>=i).length);
-  const maxN = Math.max(1, ...FUNNEL.map(s=> inF.filter(r=>r.stage===s).length));
-  let h="";
-  FUNNEL.forEach((st,i)=>{
-    const cur = inF.filter(r=>r.stage===st);
-    const v = cur.reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
-    const conv = (i<FUNNEL.length-1 && reach[i]>0) ? Math.round(100*reach[i+1]/reach[i]) : null;
-    h += `<div class="bar-row"><span><b>${st}</b> · ${cur.length}</span><div class="b-track"><div class="b-fill" style="width:${Math.max(2,Math.round(100*cur.length/maxN))}%;background:${st==="Won"?"var(--go)":"var(--blue)"}"></div></div><span class="b-val">${v?"AED "+kAED(v):"—"}</span></div>`;
-    if(conv!=null) h += `<div class="conv-note">↓ ${conv}% advance past ${st}</div>`;
-  });
-  return h;
-}
-function breakdownHTML(field){
-  const open = rows.filter(r=>OPEN_STAGES.includes(r.stage));
-  const g={};
-  open.forEach(r=>{ const k=r[field]||"(none)"; (g[k]=g[k]||{n:0,v:0}); g[k].n++; g[k].v+=Number(r.est_value_aed)||0; });
-  const items = Object.entries(g).sort((a,b)=>b[1].v-a[1].v || b[1].n-a[1].n).slice(0,8);
-  if(!items.length) return '<p style="color:var(--muted);font-size:13px">No open deals yet.</p>';
-  const max = Math.max(1, ...items.map(([,x])=>x.v));
-  return items.map(([k,x])=>`<div class="bar-row"><span title="${esc(k)}">${esc(k.length>20?k.slice(0,19)+"…":k)} · ${x.n}</span><div class="b-track"><div class="b-fill" style="width:${Math.max(2,Math.round(100*x.v/max))}%"></div></div><span class="b-val">${x.v?"AED "+kAED(x.v):"—"}</span></div>`).join("");
-}
-function renderDashboard(){
-  const el=$("view-dash"); if(!el) return;
-  const Q=quarterInfo(), val=r=>Number(r.est_value_aed)||0;
-  const open=rows.filter(r=>OPEN_STAGES.includes(r.stage));
-  const openVal=open.reduce((s,r)=>s+val(r),0);
-  const weightedVal=open.reduce((s,r)=>s+val(r)*prob(r),0);
-  const wonAll=rows.filter(r=>r.stage==="Won");
-  const wonQVal=wonAll.filter(r=>{const d=wonDateOf(r);return d&&d>=Q.startStr&&d<=Q.endStr;}).reduce((s,r)=>s+val(r),0);
-  const lostN=rows.filter(r=>r.stage==="Lost").length;
-  const winRate=(wonAll.length+lostN)?Math.round(100*wonAll.length/(wonAll.length+lostN)):null;
-  const withVal=open.filter(r=>val(r)>0);
-  const avg=withVal.length?openVal/withVal.length:0;
-  const cold=open.filter(r=>{const d=daysSince(r.last_touch);return d!=null&&d>=5;}).length;
-
-  // quarter scenarios (deals with est_close_date on/before quarter end)
-  const inQ=open.filter(r=>r.est_close_date&&r.est_close_date<=Q.endStr);
-  const bestQ=wonQVal+inQ.reduce((s,r)=>s+val(r),0);
-  const likelyQ=wonQVal+inQ.reduce((s,r)=>s+val(r)*prob(r),0);
-  const commitQ=wonQVal+inQ.filter(r=>LATE_STAGES.has(r.stage)).reduce((s,r)=>s+val(r),0);
-  const target=settings.qTarget||0, gap=Math.max(target-wonQVal,0);
-  const covWeighted=inQ.reduce((s,r)=>s+val(r)*prob(r),0);
-  const coverage=gap>0?(covWeighted/gap):null;
-
-  // forecast month buckets: this month + 5, then Later / No date
-  const now=new Date(), months=[];
-  for(let i=0;i<6;i++){
-    const m=new Date(now.getFullYear(), now.getMonth()+i, 1);
-    months.push({ key:m.getFullYear()+"-"+String(m.getMonth()+1).padStart(2,"0"), label:m.toLocaleDateString("en-GB",{month:"short"}), best:0, likely:0, commit:0 });
-  }
-  const later={key:"later",label:"Later",best:0,likely:0,commit:0}, noDate={key:"none",label:"No date",best:0,likely:0,commit:0};
-  open.forEach(r=>{
-    const v=val(r); if(!v) return;
-    let b=noDate;
-    if(r.est_close_date){
-      const k=r.est_close_date.slice(0,7);
-      b = months.find(m=>m.key===k) || (k<months[0].key ? months[0] : later);
-    }
-    b.best+=v; b.likely+=v*prob(r); if(LATE_STAGES.has(r.stage)) b.commit+=v;
-  });
-  const buckets=[...months, later, noDate];
-
-  const scen=(l,x)=>{
-    const d = target? x-target : null;
-    const dTxt = d==null? "" : (d>=0? '<span style="color:var(--go)">+AED '+kAED(d)+' vs target</span>' : '<span style="color:var(--red)">−AED '+kAED(-d)+' vs target</span>');
-    return `<div class="scen"><div class="s-l">${l}</div><div class="s-v">AED ${kAED(x)}</div><div class="s-d">${dTxt}</div></div>`;
-  };
-  const kpi=(l,v,sub)=>`<div class="kpi"><div class="k-label">${l}</div><div class="k-val">${v}</div>${sub?`<div class="k-sub">${sub}</div>`:""}</div>`;
-
-  el.innerHTML = `
-  <div class="kpis">
-    ${kpi("Open pipeline", openVal?"AED "+kAED(openVal):"—", open.length+" deals · "+withVal.length+" valued")}
-    ${kpi("Weighted forecast", weightedVal?"AED "+kAED(weightedVal):"—", "stage-probability adjusted")}
-    ${kpi("Won this quarter", wonQVal?"AED "+kAED(wonQVal):"—", Q.label)}
-    ${kpi("Win rate", winRate!=null?winRate+"%":"—", wonAll.length+"W / "+lostN+"L all-time")}
-    ${kpi("Avg deal size", avg?"AED "+kAED(avg):"—", "open, valued deals")}
-    ${kpi("Going cold", cold, "no touch ≥ 5 days")}
-  </div>
-
-  <div class="dash-panel">
-    <h2>${Q.label} target <span class="hint">${settingsSource==="db"?"synced via Supabase":"saved on this device — run the setup SQL to sync across devices"}</span></h2>
-    <div class="dash-2col">
-      <div style="text-align:center">
-        ${gaugeSVG(wonQVal, target)}
-        <div class="target-row" style="justify-content:center">
-          <div class="field"><label for="dashTarget">Quarter target (AED)</label><input id="dashTarget" type="number" min="0" step="10000" value="${target||""}"></div>
-          <button class="btn btn-go" style="padding:10px 18px" onclick="saveDashSettings()">Save</button>
-        </div>
-      </div>
-      <div>
-        <p style="font-size:13.5px;color:var(--muted);margin-bottom:4px">
-          ${target? `Gap to target: <b style="color:var(--ink)">AED ${kAED(gap)}</b>` : "Set a quarterly target to unlock gap & coverage tracking."}
-          ${coverage!=null? ` · weighted pipeline closing by ${fmtD(Q.endStr)} covers <b style="color:${coverage>=1?"var(--go)":"var(--red)"}">${coverage.toFixed(1)}×</b> of it (healthy ≥ 1.0×, comfortable ≥ 3× unweighted)`:""}
-        </p>
-        <div class="scenarios">
-          ${scen("Commit (late-stage)", commitQ)}
-          ${scen("Likely (weighted)", likelyQ)}
-          ${scen("Best case (all open)", bestQ)}
-        </div>
-        <p style="font-size:11.5px;color:var(--muted);margin-top:8px">Scenarios = won so far + open deals with an est. close date on/before quarter end. ${open.filter(r=>!r.est_close_date).length? open.filter(r=>!r.est_close_date).length+" open deals have no close date and are excluded — set dates to sharpen the forecast.":""}</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="dash-panel">
-    <h2>Forecast by expected close month <span class="hint">based on est. close dates</span></h2>
-    ${forecastSVG(buckets)}
-    <div class="legend">
-      <span><i style="background:#C9D4D9"></i>Best case (all open)</span>
-      <span><i style="background:var(--go)"></i>Likely (weighted)</span>
-      <span><i style="background:var(--blue)"></i>Commit (Proposal + Negotiation)</span>
-    </div>
-    <div class="prob-row">
-      ${OPEN_STAGES.map(st=>`<div class="field"><label for="prob-${st}">${st} %</label><input id="prob-${st}" type="number" min="0" max="100" value="${settings.probs[st]??0}"></div>`).join("")}
-      <button class="btn" style="padding:8px 14px" onclick="saveDashSettings()">Update probabilities</button>
-    </div>
-  </div>
-
-  <div class="dash-panel">
-    <h2>Funnel <span class="hint">count · open value per stage · % advancing (current snapshot)</span></h2>
-    ${funnelHTML()}
-  </div>
-
-  <div class="dash-2col">
-    <div class="dash-panel" style="margin-bottom:0">
-      <h2>Pipeline by source</h2>
-      ${breakdownHTML("lead_source")}
-    </div>
-    <div class="dash-panel" style="margin-bottom:0">
-      <h2>Pipeline by product</h2>
-      ${breakdownHTML("product")}
-    </div>
-  </div>`;
-}
-
 /* ================= WEEKLY SYNC ================= */
 const dz = () => $("dropzone");
 document.addEventListener("DOMContentLoaded", ()=>{
@@ -870,11 +728,17 @@ document.addEventListener("DOMContentLoaded", ()=>{
   d.addEventListener("drop", e=>{e.preventDefault(); d.classList.remove("drag"); handleFiles(e.dataTransfer.files);});
   boot();
 });
+function fmtSheetDate(v){
+  // SheetJS serial dates drift a few seconds — round to the minute, format local
+  const d = new Date(Math.round(v.getTime()/60000)*60000);
+  const P = n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${P(d.getMonth()+1)}-${P(d.getDate())}T${P(d.getHours())}:${P(d.getMinutes())}:00`;
+}
 async function handleFiles(files){
   syncRows = []; syncHeaders = [];
   for(const f of files){
     const buf = await f.arrayBuffer();
-    const wb = XLSX.read(buf, {type:"array"});
+    const wb = XLSX.read(buf, {type:"array", cellDates:true});
     const ws = wb.Sheets[wb.SheetNames[0]];
     const grid = XLSX.utils.sheet_to_json(ws, {header:1, defval:""});
     // find header row within first 6 rows: the one with the most string cells incl. an email/company-ish header
@@ -890,7 +754,7 @@ async function handleFiles(files){
       const row = grid[i];
       if(row.every(c=>c===""||c==null)) continue;
       const obj = {};
-      headers.forEach((h,j)=>{ if(h) obj[h] = row[j]!=null? String(row[j]).trim():""; });
+      headers.forEach((h,j)=>{ const v=row[j]; if(h) obj[h] = v==null?"":(v instanceof Date? fmtSheetDate(v) : String(v).trim()); });
       obj.__file = f.name;
       syncRows.push(obj);
     }
@@ -905,16 +769,27 @@ async function handleFiles(files){
   fillSelect($("mapTopic"), opts, "— none —");   $("mapTopic").value   = pick(/topic/i);
   $("rowsLoaded").textContent = `${syncRows.length} rows loaded from ${new Set(syncRows.map(r=>r.__file)).size} file(s)`;
   $("mapPanel").classList.remove("hidden");
+  const guidCol = syncHeaders.find(h=>/^\(do not modify\) opportunity$/i.test(h));
+  const ip = $("importPanel");
+  if(guidCol){
+    const n = syncRows.filter(r=>r[guidCol]).length;
+    ip.innerHTML = `<b style="font-family:var(--font-display);font-size:16px;text-transform:uppercase">Opportunity export detected</b>
+      <p style="font-size:13px;color:var(--muted);margin:6px 0 10px">Refresh your Targets database: upserts ${n} opportunities by CRM id (re-imports are safe, nothing duplicates) and creates any new accounts.</p>
+      <button class="btn btn-go" onclick="importOpps()">Import / refresh ${n} opportunities → Targets</button>
+      <span id="impProg" class="k" style="margin-left:10px"></span>`;
+    ip.classList.remove("hidden");
+  } else { ip.classList.add("hidden"); ip.innerHTML=""; }
   $("syncResults").innerHTML = "";
 }
 function runMatch(){
   const cE=$("mapEmail").value, cC=$("mapCompany").value, cW=$("mapWebsite").value, cT=$("mapTopic").value;
-  if(!cE && !cW){ toast("Pick at least an email or website column"); return; }
+  if(!cE && !cW && !cC){ toast("Pick at least an email, website or company column"); return; }
   // index my pipeline
-  const byEmail = new Map(), byDomain = new Map();
+  const byEmail = new Map(), byDomain = new Map(), byName = new Map();
   rows.forEach(r=>{
     if(r.contact_email) byEmail.set(r.contact_email.toLowerCase(), r);
     if(r.domain && !GENERIC_DOMAINS.has(r.domain)){ if(!byDomain.has(r.domain)) byDomain.set(r.domain, r); }
+    const k = nameKey(r.company); if(k && !byName.has(k)) byName.set(k, r);
   });
   const matched = [], crmOnly = [], noKey = [];
   const matchedIds = new Set();
@@ -925,10 +800,12 @@ function runMatch(){
     let hit = email? byEmail.get(email):null;
     if(!hit && dom && !GENERIC_DOMAINS.has(dom)) hit = byDomain.get(dom);
     if(!hit && wdom) hit = byDomain.get(wdom);
-    const label = (cC? row[cC]:"") || email || wdom || "(unnamed)";
+    const coName = cC? String(row[cC]||"").trim():"";
+    if(!hit && coName) hit = byName.get(nameKey(coName));
+    const label = coName || email || wdom || "(unnamed)";
     const topic = cT? row[cT]:"";
-    if(hit){ matched.push({row, hit, label, topic, key: email||dom||wdom}); matchedIds.add(hit.id); }
-    else if(email || wdom){ crmOnly.push({label, email, wdom, topic}); }
+    if(hit){ matched.push({row, hit, label, topic, key: email||dom||wdom||coName}); matchedIds.add(hit.id); }
+    else if(email || wdom || coName){ crmOnly.push({label, email, wdom, topic}); }
     else noKey.push({label, topic});
   });
   const mineOnly = rows.filter(r=>isOpen(r) && !matchedIds.has(r.id));
@@ -972,7 +849,7 @@ async function addFromCrm(i){
   const email = m.email||null;
   const d = await dbInsert({
     company: m.label, contact_email: email, domain: domainOf(email)||m.wdom||null,
-    notes: m.topic||null, stage:"Lead – New", waiting_on:"Me", budget_confirmed:"Unknown",
+    notes: m.topic||null, stage:"New", waiting_on:"Me", budget_confirmed:"Unknown",
     next_step:"Review & first response", last_touch:new Date().toISOString(),
     crm_status:"in_crm", crm_last_sync:new Date().toISOString()
   });
@@ -983,6 +860,259 @@ async function addAllCrm(){
   let n=0;
   for(let i=0;i<list.length;i++){ await addFromCrm(i); n++; }
   toast(`${n} leads added`);
+}
+
+/* ================= TASKS ================= */
+function fillCompanyList(){
+  const names = new Set();
+  rows.forEach(r=>names.add(r.company));
+  accounts.forEach(a=>names.add(a.name));
+  $("companyList").innerHTML = [...names].sort((a,b)=>a.localeCompare(b)).map(n=>`<option value="${esc(n)}">`).join("");
+}
+function taskUrgencyCounts(){
+  const t = todayStr();
+  let n = 0;
+  tasksRows.forEach(x=>{ if(!x.done && x.due && x.due <= t) n++; });
+  return n;
+}
+async function addTask(){
+  const company = $("tCompany").value.trim(), title = $("tTitle").value.trim();
+  if(!company){ toast("Pick a company"); return; }
+  if(!title){ toast("Say what needs doing"); return; }
+  await createTask(company, title, $("tDue").value || null);
+  $("tTitle").value=""; $("tDue").value="";
+}
+async function createTask(company, title, due){
+  const { data, error } = await sb.from("tasks").insert({ company, company_key: nameKey(company), title, due }).select().single();
+  if(error){ toast("Save failed: "+error.message); return; }
+  tasksRows.unshift(data);
+  await ensureAccount(company);
+  toast("Task added — off your mind");
+  renderAll();
+}
+async function toggleTask(id){
+  const t = tasksRows.find(x=>x.id===id); if(!t) return;
+  const patch = { done: !t.done, done_at: !t.done? new Date().toISOString() : null };
+  const { error } = await sb.from("tasks").update(patch).eq("id", id);
+  if(error){ toast("Save failed: "+error.message); return; }
+  Object.assign(t, patch);
+  renderAll();
+  if(tlKey) fillTimeline();
+}
+async function delTask(id){
+  const { error } = await sb.from("tasks").delete().eq("id", id);
+  if(error){ toast("Delete failed: "+error.message); return; }
+  tasksRows = tasksRows.filter(x=>x.id!==id);
+  toast("Task deleted"); renderAll();
+}
+function taskItemHTML(t){
+  const overdue = !t.done && t.due && t.due < todayStr();
+  return `<div class="task-item ${t.done?"done":""}">
+    <button class="tick ${t.done?"on":""}" onclick="toggleTask('${t.id}')" aria-label="toggle">${t.done?"✓":""}</button>
+    <span class="t-title">${esc(t.title)}</span>
+    <span class="t-co" onclick="openTimeline(nameKey('${esc(t.company).replace(/'/g,"\\'")}'), '${esc(t.company).replace(/'/g,"\\'")}')">${esc(t.company)}</span>
+    ${t.due? `<span class="badge ${overdue?"b-red":"b-grey"}">${overdue?"⚠ ":""}${fmtD(t.due)}</span>`:""}
+    <button class="btn btn-ghost" style="padding:2px 8px;color:var(--muted)" onclick="delTask('${t.id}')" aria-label="delete">✕</button>
+  </div>`;
+}
+function renderTasks(){
+  const t = todayStr();
+  const open = tasksRows.filter(x=>!x.done);
+  const grp = {
+    overdue: open.filter(x=>x.due && x.due < t).sort((a,b)=>a.due<b.due?-1:1),
+    today:   open.filter(x=>x.due === t),
+    upcoming:open.filter(x=>x.due && x.due > t).sort((a,b)=>a.due<b.due?-1:1),
+    someday: open.filter(x=>!x.due),
+    done:    tasksRows.filter(x=>x.done).slice(0,20)
+  };
+  const lane = (title,color,list,empty)=> `<div class="lane"><div class="lane-h"><h2 style="color:${color}">${title}</h2><span class="cnt">${list.length}</span></div>`
+    + (list.length? list.map(taskItemHTML).join("") : `<div class="empty">${empty}</div>`) + `</div>`;
+  let h = "";
+  h += lane("Overdue","var(--red)",grp.overdue,"Nothing overdue.");
+  h += lane("Due today","var(--amber)",grp.today,"Nothing due today.");
+  h += lane("Upcoming","var(--ink)",grp.upcoming,"Nothing scheduled.");
+  h += lane("No date","var(--muted)",grp.someday,"Empty.");
+  if(grp.done.length) h += `<details class="more"><summary>Done (last ${grp.done.length})</summary>${grp.done.map(taskItemHTML).join("")}</details>`;
+  $("taskLists").innerHTML = h;
+  const n = taskUrgencyCounts();
+  $("taskCount").textContent = n? n : "";
+}
+
+/* ================= ACCOUNTS & TIMELINE ================= */
+async function ensureAccount(name){
+  const key = nameKey(name);
+  if(!key || accountsByKey.has(key)) return accountsByKey.get(key);
+  const { data, error } = await sb.from("accounts").insert({ name, name_key: key }).select().single();
+  if(error) return null;
+  accounts.push(data); accountsByKey.set(key, data);
+  return data;
+}
+function countryOptions(sel){
+  const set = new Set(COUNTRIES);
+  accounts.forEach(a=>{ if(a.country) set.add(a.country); });
+  return [...set].map(c=>`<option value="${esc(c)}" ${c===sel?"selected":""}>${esc(c)}</option>`).join("");
+}
+function openTimeline(key, fallbackName){
+  tlKey = key;
+  const acc = accountsByKey.get(key);
+  const name = acc? acc.name : (fallbackName || key);
+  $("tlTitle").textContent = name;
+  $("tlCountry").innerHTML = countryOptions(acc? acc.country : "Unknown");
+  fillTimeline();
+  $("overlay").classList.add("open"); $("tlDrawer").classList.add("open");
+}
+function closeTimeline(){ $("overlay").classList.remove("open"); $("tlDrawer").classList.remove("open"); tlKey=null; }
+function timelineFromEdit(){
+  const co = $("eCompany").value; closeDrawer();
+  openTimeline(nameKey(co), co);
+}
+function fillTimeline(){
+  const key = tlKey, t = todayStr(), ev = [];
+  tasksRows.filter(x=>x.company_key===key).forEach(x=>{
+    if(x.done && x.done_at) ev.push({d:x.done_at, txt:`Task done: ${x.title}`, k:"done"});
+    else if(x.due) ev.push({d:x.due, txt:`Task ${x.due<t?"OVERDUE":"due"}: ${x.title}`, k:x.due<t?"overdue":"due"});
+    ev.push({d:x.created_at, txt:`Task added: ${x.title}`, k:"task"});
+  });
+  rows.filter(r=>nameKey(r.company)===key).forEach(r=>{
+    ev.push({d:r.created_at, txt:`Added to pipeline — ${r.stage}${r.product? " · "+r.product:""}${r.est_value_aed? " · "+fmtAED(r.est_value_aed):""}`, k:"task"});
+    if(r.last_touch) ev.push({d:r.last_touch, txt:`Last touch — ${r.waiting_on==="Me"?"your move":"their move"} (${r.stage})`, k:"due"});
+    if(r.next_step_due && !CLOSED_STAGES.has(r.stage)) ev.push({d:r.next_step_due, txt:`Next step ${r.next_step_due<t?"OVERDUE":"due"}: ${r.next_step||"—"}`, k:r.next_step_due<t?"overdue":"due"});
+    if(r.stage==="Lost" && r.lost_reason) ev.push({d:r.updated_at||r.created_at, txt:`Lost — ${r.lost_reason}`, k:"overdue"});
+  });
+  crmOpps.filter(o=>o.account_key===key).forEach(o=>{
+    if(o.crm_created) ev.push({d:o.crm_created, txt:`CRM: ${o.topic||o.product||"opportunity"} — ${o.status||"?"}${o.est_revenue? " · "+fmtAED(o.est_revenue):""}`, k:"crm"});
+  });
+  ev.sort((a,b)=> new Date(b.d)-new Date(a.d));
+  const my = crmOpps.filter(o=>o.account_key===key);
+  const won = my.filter(o=>o.status==="Won").length, open = my.filter(o=>o.status==="In Progress"||o.status==="On Hold").length;
+  const lost = my.filter(o=>(o.status||"").startsWith("Lost")).reduce((s,o)=>s+(Number(o.est_revenue)||0),0);
+  $("tlStats").textContent = `${my.length} CRM opps · ${won} won · ${open} open · lost value ${lost? fmtAED(lost):"—"}`;
+  $("tlBody").innerHTML = ev.length
+    ? ev.map(e=>`<div class="tl-item"><span class="tl-d">${fmtD(e.d)}</span><span class="tl-dot ${e.k}"></span><span>${esc(e.txt)}</span></div>`).join("")
+    : `<div class="empty">No history yet for this company.</div>`;
+}
+async function saveCountry(){
+  const acc = accountsByKey.get(tlKey);
+  const val = $("tlCountry").value;
+  if(!acc){ toast("Account not found — import opportunities first"); return; }
+  const { error } = await sb.from("accounts").update({ country: val, updated_at: new Date().toISOString() }).eq("id", acc.id);
+  if(error){ toast("Save failed: "+error.message); return; }
+  acc.country = val; toast(`${acc.name} → ${val}`); renderTargets();
+}
+async function addTaskFromTimeline(){
+  const title = $("tlTask").value.trim();
+  if(!title){ toast("Say what needs doing"); return; }
+  const acc = accountsByKey.get(tlKey);
+  await createTask(acc? acc.name : $("tlTitle").textContent, title, $("tlTaskDue").value || null);
+  $("tlTask").value=""; $("tlTaskDue").value="";
+  fillTimeline();
+}
+
+/* ================= TARGETS ================= */
+function targetAgg(){
+  const m = new Map();
+  crmOpps.forEach(o=>{
+    const k = o.account_key; if(!k) return;
+    let a = m.get(k);
+    if(!a){ a = {key:k, name:o.account, cats:new Set(), won:new Set(), wonAny:false, open:0, lost:0, last:null}; m.set(k,a); }
+    const cs = catsOf(o.product, o.topic);
+    cs.forEach(x=>a.cats.add(x));
+    if(o.status==="Won"){ a.wonAny = true; cs.forEach(x=>a.won.add(x)); }
+    if(o.status==="In Progress"||o.status==="On Hold") a.open++;
+    if((o.status||"").startsWith("Lost")) a.lost += Number(o.est_revenue)||0;
+    if(o.crm_created && (!a.last || o.crm_created > a.last)) a.last = o.crm_created;
+  });
+  return m;
+}
+function renderTargets(){
+  if(!$("tgTable")) return;
+  const agg = targetAgg();
+  const gaps = a => TG_CATS.filter(c=>a.cats.has(c) && !a.won.has(c));
+  const counts = {}; TG_CATS.forEach(c=>counts[c]=0);
+  agg.forEach(a=>gaps(a).forEach(c=>counts[c]++));
+  $("tgCats").innerHTML = [`<button class="btn ${tgCat==="All"?"on":""}" onclick="tgCat='All';renderTargets()">All</button>`]
+    .concat(TG_CATS.map(c=>`<button class="btn ${tgCat===c?"on":""}" onclick="tgCat='${c.replace(/'/g,"\\'")}';renderTargets()">${esc(c)} <span class="n" style="color:inherit;opacity:.65">${counts[c]}</span></button>`)).join("");
+  const cSel = $("tgCountry"); const prev = cSel.value || "All countries";
+  const cset = new Set(["All countries"]);
+  agg.forEach(a=>{ const acc=accountsByKey.get(a.key); cset.add(acc&&acc.country? acc.country:"Unknown"); });
+  cSel.innerHTML = [...cset].map(c=>`<option ${c===prev?"selected":""}>${esc(c)}</option>`).join("");
+  const q = ($("tgSearch").value||"").toLowerCase();
+  let list = [...agg.values()].map(a=>({a, g:gaps(a), acc:accountsByKey.get(a.key)}))
+    .filter(x=>x.g.length)
+    .filter(x=> tgCat==="All" || x.g.includes(tgCat))
+    .filter(x=>{ const co = x.acc&&x.acc.country? x.acc.country:"Unknown"; return cSel.value==="All countries" || co===cSel.value; })
+    .filter(x=> !q || x.a.name.toLowerCase().includes(q));
+  list.sort((x,y)=> (y.a.open-x.a.open) || (y.a.lost-x.a.lost));
+  let h = `<tr><th>Account</th><th>Country</th><th>${tgCat==="All"?"Target for":"Also target for"}</th><th>Client?</th><th>Open opps</th><th>Lost value</th><th>Last CRM activity</th></tr>`;
+  list.forEach(x=>{
+    const co = x.acc&&x.acc.country? x.acc.country:"Unknown";
+    const badges = (tgCat==="All"? x.g : x.g.filter(c=>c!==tgCat)).map(c=>`<span class="badge b-blue tg-badge">${esc(c)}</span>`).join(" ");
+    h += `<tr onclick="openTimeline('${x.a.key.replace(/'/g,"\\'")}')">
+      <td><b>${esc(x.a.name)}</b></td>
+      <td onclick="event.stopPropagation()"><select style="width:auto;padding:4px 6px;font-size:13px" onchange="setAccCountry('${x.a.key.replace(/'/g,"\\'")}', this.value)">${countryOptions(co)}</select></td>
+      <td>${badges||"—"}</td>
+      <td>${x.a.wonAny? '<span class="badge b-money">existing client</span>':"—"}</td>
+      <td class="mono">${x.a.open||"—"}</td>
+      <td class="mono">${x.a.lost? fmtAED(x.a.lost):"—"}</td>
+      <td class="mono">${fmtD(x.a.last)}</td></tr>`;
+  });
+  $("tgTable").innerHTML = h;
+  $("tgTotals").textContent = crmOpps.length
+    ? `${list.length} target account(s)${tgCat!=="All"? " for "+tgCat:""} · ${crmOpps.length} CRM opportunities on file · existing-client rows are cross-sell targets`
+    : "No CRM opportunities yet — run migrate_v2_to_v3.sql, or drop an export on Weekly sync and press Import.";
+}
+async function setAccCountry(key, val){
+  let acc = accountsByKey.get(key);
+  if(!acc){ toast("Account not found"); return; }
+  const { error } = await sb.from("accounts").update({ country: val, updated_at: new Date().toISOString() }).eq("id", acc.id);
+  if(error){ toast("Save failed: "+error.message); return; }
+  acc.country = val; toast(`${acc.name} → ${val}`); renderTargets();
+}
+
+/* ================= OPPORTUNITY IMPORT ================= */
+async function importOpps(){
+  const H = re => syncHeaders.find(h=>re.test(h));
+  const gC = H(/^\(do not modify\) opportunity$/i), aC = H(/account name/i), tC = H(/^topic$/i),
+        pC = H(/^product$/i), sC = H(/probability/i), stC = H(/status reason/i),
+        rC = H(/est\.? revenue/i), cC2 = H(/est\.? close/i), crC = H(/^created on$/i), lC = H(/lead source/i);
+  if(!gC || !aC){ toast("Need the '(Do Not Modify) Opportunity' and 'Account Name' columns"); return; }
+  const prog = $("impProg");
+  const recs = [], accMap = new Map();
+  syncRows.forEach(r=>{
+    const id = String(r[gC]||"").trim(); if(!id) return;
+    const account = String(r[aC]||"").replace(/­/g,"").trim(); if(!account) return;
+    const key = nameKey(account);
+    if(!accMap.has(key)) accMap.set(key, account);
+    recs.push({
+      crm_id: id, account, account_key: key,
+      topic: tC? (String(r[tC]).trim()||null):null,
+      product: pC? (String(r[pC]).trim()||null):null,
+      crm_stage: sC? (String(r[sC]).trim()||null):null,
+      status: stC? mapCrmStatus(r[stC]):null,
+      est_revenue: rC && r[rC]!=="" ? (Number(r[rC])||null):null,
+      est_close: cC2 && r[cC2]? String(r[cC2]).slice(0,10):null,
+      crm_created: crC && r[crC]? String(r[crC]):null,
+      lead_source: lC? (String(r[lC]).trim()||null):null,
+      imported_at: new Date().toISOString()
+    });
+  });
+  if(!recs.length){ toast("No opportunity rows found"); return; }
+  prog.textContent = "importing…";
+  const newAcc = [...accMap].filter(([k])=>!accountsByKey.has(k)).map(([k,n])=>({ name:n, name_key:k }));
+  if(newAcc.length){
+    const { error } = await sb.from("accounts").upsert(newAcc, { onConflict:"name_key", ignoreDuplicates:true });
+    if(error){ toast("Account save failed: "+error.message); prog.textContent=""; return; }
+  }
+  for(let i=0;i<recs.length;i+=200){
+    const { error } = await sb.from("crm_opps").upsert(recs.slice(i,i+200), { onConflict:"crm_id" });
+    if(error){ toast("Import failed at row "+i+": "+error.message); prog.textContent=""; return; }
+    prog.textContent = `imported ${Math.min(i+200,recs.length)} / ${recs.length}`;
+  }
+  const [a,o] = await Promise.all([fetchAll("accounts","created_at"), fetchAll("crm_opps","crm_created")]);
+  accounts = a; crmOpps = o; accountsByKey = new Map(accounts.map(x=>[x.name_key,x]));
+  prog.textContent = "";
+  toast(`${recs.length} opportunities imported — Targets is up to date`);
+  renderAll(); setTab("targets");
 }
 </script>
 </body>
