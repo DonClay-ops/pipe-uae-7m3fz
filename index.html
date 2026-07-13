@@ -226,6 +226,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <button id="tab-today" class="on" onclick="setTab('today')">Today <span class="n" id="todayCount"></span></button>
     <button id="tab-dash" onclick="setTab('dash')">Dashboard</button>
     <button id="tab-pipeline" onclick="setTab('pipeline')">Pipeline</button>
+    <button id="tab-quotes" onclick="setTab('quotes')">Quotes <span class="n" id="quotesCount"></span></button>
+    <button id="tab-chase" onclick="setTab('chase')">Chase <span class="n" id="chaseCount"></span></button>
     <button id="tab-tasks" onclick="setTab('tasks')">Tasks <span class="n" id="taskCount"></span></button>
     <button id="tab-targets" onclick="setTab('targets')">Targets</button>
     <button id="tab-add" onclick="setTab('add')">+ Add lead</button>
@@ -277,6 +279,42 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <div class="filters" id="pipeFilters"></div>
     <div class="tbl-wrap"><table id="pipeTable"></table></div>
     <p class="totals" id="pipeTotals"></p>
+  </div>
+
+  <div id="view-quotes" class="hidden">
+    <div class="panel">
+      <h2>New quotation</h2>
+      <div class="task-add">
+        <input id="qCompany" type="text" list="companyList" placeholder="Company…" style="flex:1;min-width:140px">
+        <input id="qDesc" type="text" placeholder="What (e.g. BC licenses ×10)" style="flex:2;min-width:160px">
+        <input id="qValue" type="number" min="0" step="500" placeholder="AED" style="flex:0 0 110px">
+        <input id="qSent" type="date" style="flex:0 0 140px" title="Sent on">
+        <label style="display:flex;align-items:center;gap:5px;margin:0;text-transform:none;font-size:13px;font-weight:500;flex:0 0 auto;color:var(--ink)"><input type="checkbox" id="qLic" style="width:auto">license</label>
+        <input id="qRenew" type="date" style="flex:0 0 140px" title="Renewal date" disabled>
+        <button class="btn btn-go" onclick="addQuote()">Save</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:8px">One-off transactions — no pipeline stages, just <b>Sent → Chasing → PO → Payment pending → Paid</b>, one tap each. Tick <b>license</b> and the renewal date auto-fills one year out for the Renewals view.</p>
+    </div>
+    <div class="filters" id="qFilters"></div>
+    <div id="qList"></div>
+  </div>
+
+  <div id="view-chase" class="hidden">
+    <div class="panel">
+      <h2>They owe you — log it, chase it, close it</h2>
+      <div class="task-add">
+        <input id="cWho" type="text" placeholder="Who (person)" style="flex:1;min-width:110px">
+        <select id="cOrg" style="flex:0 0 116px;width:auto"></select>
+        <select id="cCat" style="flex:0 0 126px;width:auto"></select>
+        <input id="cOutcome" type="text" placeholder="Expected outcome — be specific" style="flex:3;min-width:200px">
+        <input id="cCompany" type="text" list="companyList" placeholder="Company (opt.)" style="flex:1;min-width:120px">
+        <input id="cPromised" type="date" style="flex:0 0 140px" title="Promised date (optional)">
+        <button class="btn btn-go" onclick="addCommitment()">Log</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:8px">No promised date? Follow-up auto-sets +2 days. <b>Chased</b> bumps it 2 more and counts each chase — if you're chasing the same thing ×4, that's a process problem, not a task.</p>
+    </div>
+    <div class="filters" id="cFilters"></div>
+    <div id="cList"></div>
   </div>
 
   <div id="view-tasks" class="hidden">
@@ -466,8 +504,15 @@ let sb = null, rows = [], tab = "today", pipeFilter = "open", editId = null, syn
 let tasksRows = [], accounts = [], crmOpps = [], accountsByKey = new Map(), tlKey = null, tgCat = "All";
 let todayFilter = "all", pipeSource = "crm", crmFilter = "open", dashFilter = "open";
 let inboxRows = [], ibFilter = "open";
+let quotes = [], qFilter = "open", commitments = [], cFilter = "chase";
+const QUOTE_FLOW = ["Sent","Chasing","PO received","Payment pending","Paid"];
+const QUOTE_BADGE = {"Sent":"b-grey","Chasing":"b-amber","PO received":"b-blue","Payment pending":"b-red","Paid":"b-money","Lost":"b-red"};
+const ORG_TYPES = ["Client","Consultant","PM","Finance","Vendor","Microsoft","Other"];
+const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment","Other"];
+const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v6.0";
+const APP_VERSION = "v7.0";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -568,12 +613,13 @@ async function fetchAll(table, orderCol){
   return out;
 }
 async function loadRows(){
-  const [p,t,a,o,ib] = await Promise.all([
+  const [p,t,a,o,ib,q,cm] = await Promise.all([
     fetchAll("pipeline","created_at"), fetchAll("tasks","created_at"),
     fetchAll("accounts","created_at"), fetchAll("crm_opps","crm_created"),
-    fetchAll("inbox","captured_at")
+    fetchAll("inbox","captured_at"), fetchAll("quotes","created_at"),
+    fetchAll("commitments","created_at")
   ]);
-  rows = p; tasksRows = t; accounts = a; crmOpps = o; inboxRows = ib;
+  rows = p; tasksRows = t; accounts = a; crmOpps = o; inboxRows = ib; quotes = q; commitments = cm;
   accountsByKey = new Map(accounts.map(x=>[x.name_key, x]));
   renderAll();
 }
@@ -595,7 +641,7 @@ async function dbInsert(rec){
 /* ================= tabs & header ================= */
 function setTab(t){
   tab = t;
-  ["inbox","today","dash","pipeline","tasks","targets","add","sync"].forEach(x=>{
+  ["inbox","today","dash","pipeline","quotes","chase","tasks","targets","add","sync"].forEach(x=>{
     $("tab-"+x).classList.toggle("on", x===t);
     $("view-"+x).classList.toggle("hidden", x!==t);
   });
@@ -608,7 +654,7 @@ function renderHeader(){
   const urgent = rows.filter(r=>isOpen(r)&&r.waiting_on==="Me").map(urgency).filter(u=>u&&u.score<=2).length;
   $("todayCount").textContent = urgent? urgent : "";
 }
-function renderAll(){ renderHeader(); renderInbox(); renderToday(); renderDash(); renderPipeline(); renderTasks(); renderTargets(); fillCompanyList(); }
+function renderAll(){ renderHeader(); renderInbox(); renderToday(); renderDash(); renderPipeline(); renderQuotes(); renderChase(); renderTasks(); renderTargets(); fillCompanyList(); }
 
 /* ================= TODAY ================= */
 function cardHTML(r, u, lane){
@@ -928,6 +974,11 @@ const dz = () => $("dropzone");
 document.addEventListener("DOMContentLoaded", ()=>{
   document.querySelectorAll(".verTag").forEach(el=>el.textContent=APP_VERSION);
   $("ibNote").addEventListener("keydown", e=>{ if(e.key==="Enter") captureItem(); });
+  $("qSent").value = todayStr();
+  $("qLic").addEventListener("change", ()=>{ $("qRenew").disabled = !$("qLic").checked;
+    if($("qLic").checked && !$("qRenew").value) $("qRenew").value = addDays($("qSent").value||todayStr(), 365); });
+  $("qSent").addEventListener("change", ()=>{ if($("qLic").checked) $("qRenew").value = addDays($("qSent").value, 365); });
+  fillSelect($("cOrg"), ORG_TYPES); fillSelect($("cCat"), COMMIT_CATS);
   $("fileInput").addEventListener("change", e=>handleFiles(e.target.files));
   const d = dz();
   d.addEventListener("dragover", e=>{e.preventDefault(); d.classList.add("drag");});
@@ -1193,6 +1244,14 @@ function fillTimeline(){
   crmOpps.filter(o=>o.account_key===key).forEach(o=>{
     if(o.crm_created) ev.push({d:o.crm_created, txt:`CRM: ${o.topic||o.product||"opportunity"} — ${o.status||"?"}${o.est_revenue? " · "+fmtAED(o.est_revenue):""}`, k:"crm"});
   });
+  quotes.filter(q=>q.company_key===key).forEach(q=>{
+    ev.push({d:q.sent_on||q.created_at, txt:`Quote sent: ${q.description||""} ${q.value_aed? "· "+fmtAED(q.value_aed):""} — ${q.status}`, k:"task"});
+    if(q.paid_on) ev.push({d:q.paid_on, txt:`Quote paid: ${q.description||""}`, k:"done"});
+    if(q.is_license && q.renewal_date) ev.push({d:q.renewal_date, txt:`License renewal window: ${q.description||""}`, k:q.renewal_date<t?"overdue":"due"});
+  });
+  commitments.filter(c=>c.company_key===key).forEach(c=>{
+    ev.push({d:c.requested_on||c.created_at, txt:`${c.who} owes: ${c.outcome} (${c.status}${c.chase_count?` · chased ×${c.chase_count}`:""})`, k:c.status==="open"?"crm":"done"});
+  });
   ev.sort((a,b)=> new Date(b.d)-new Date(a.d));
   const my = crmOpps.filter(o=>o.account_key===key);
   const won = my.filter(o=>o.status==="Won").length, open = my.filter(o=>o.status==="In Progress"||o.status==="On Hold").length;
@@ -1447,13 +1506,35 @@ function doNowItems(){
     items.push({t:"crm", id:o.crm_id, key:o.account_key, co:o.account, what:(o.topic||o.product||"opportunity")+" — not on your board",
                 val:o.est_revenue, why:"UNTRACKED", bcls:"b-amber", sc});
   });
+  const t = todayStr();
+  quotes.filter(isOpenQuote).forEach(q=>{
+    if(q.status==="Payment pending" || q.status==="PO received")
+      items.push({t:"quote", id:q.id, co:q.company, what:(q.description||"quotation")+(q.status==="PO received"?" — invoice it":" — chase payment"),
+                  val:q.value_aed, why:"💰 "+q.status.toUpperCase(), bcls:"b-money", sc:1e9+(Number(q.value_aed)||0)});
+    else if(q.next_followup && q.next_followup <= t)
+      items.push({t:"quote", id:q.id, co:q.company, what:(q.description||"quotation")+" — follow up",
+                  val:q.value_aed, why:"QUOTE FOLLOW-UP DUE", bcls:"b-amber", sc:(Number(q.value_aed)||1000)*0.8});
+    if(q.is_license && q.renewal_date && !q.renewal_lead_created && q.renewal_date <= addDays(t,60))
+      items.push({t:"quote", id:q.id, co:q.company, what:"license renews "+fmtD(q.renewal_date)+" — open next-year lead",
+                  val:q.value_aed, why:q.renewal_date<=addDays(t,30)?"RENEWAL <30D":"RENEWAL <60D",
+                  bcls:q.renewal_date<=addDays(t,30)?"b-red":"b-amber", sc:(Number(q.value_aed)||1000)*0.9});
+  });
+  commitments.filter(c=>c.status==="open").forEach(c=>{
+    const overdueProm = c.promised_on && c.promised_on < t;
+    const due = c.next_followup && c.next_followup <= t;
+    if(!overdueProm && !due) return;
+    const dec = c.category==="Decision";
+    items.push({t:"commit", id:c.id, co:c.who + (c.company? " · "+c.company:""), what:c.outcome,
+                val:null, why: overdueProm? `PROMISE OVERDUE ${daysSince(c.promised_on)}D` : (dec? "DECISION BLOCKED":"CHASE TODAY"),
+                bcls: overdueProm||dec? "b-red":"b-amber", sc: (dec? 8e8:5e8) + (daysSince(c.promised_on||c.requested_on)||0)*1e5});
+  });
   return items.sort((a,b)=>b.sc-a.sc).slice(0,10);
 }
 function doNowHTML(){
   const items = doNowItems();
   if(!items.length) return "";
   return `<div class="donow"><h2>Do now — your top ${items.length}</h2>` + items.map((x,i)=>
-    `<div class="donow-row" onclick="${x.t==="pipe"? `openDrawer('${x.id}')` : `openTimeline('${String(x.key||"").replace(/'/g,"\\'")}')`}">
+    `<div class="donow-row" onclick="${x.t==="pipe"? `openDrawer('${x.id}')` : x.t==="quote"? `setTab('quotes')` : x.t==="commit"? `setTab('chase')` : `openTimeline('${String(x.key||"").replace(/'/g,"\\'")}')`}">
       <span class="dn-rank">${i+1}</span>
       <b>${esc(x.co)}</b>
       <span class="dn-what">${esc(x.what)}</span>
@@ -1482,6 +1563,213 @@ async function saveIndustry(){
   const { error } = await sb.from("accounts").update({ industry: val, updated_at: new Date().toISOString() }).eq("id", acc.id);
   if(error){ toast(error.code==="42703"? "Run migrate_v3_to_v4.sql first — industry column missing" : "Save failed: "+error.message); return; }
   acc.industry = val; toast(`${acc.name} → ${val}`);
+}
+
+/* ================= QUOTES & RENEWALS ================= */
+async function addQuote(){
+  const company = $("qCompany").value.trim();
+  if(!company){ toast("Company is required"); return; }
+  const lic = $("qLic").checked;
+  const sent = $("qSent").value || todayStr();
+  const rec = {
+    company, company_key: nameKey(company),
+    description: $("qDesc").value.trim()||null,
+    value_aed: $("qValue").value? Number($("qValue").value):null,
+    sent_on: sent, status:"Sent", is_license: lic,
+    renewal_date: lic? ($("qRenew").value || addDays(sent,365)) : null,
+    next_followup: addDays(sent,3)
+  };
+  const { data, error } = await sb.from("quotes").insert(rec).select().single();
+  if(error){ toast(error.code==="42P01"? "Run migrate_v4_to_v5.sql first — quotes table missing":"Save failed: "+error.message); return; }
+  quotes.unshift(data); await ensureAccount(company);
+  ["qCompany","qDesc","qValue"].forEach(i=>$(i).value="");
+  $("qLic").checked=false; $("qRenew").value=""; $("qRenew").disabled=true;
+  toast("Quote logged — follow-up set for "+fmtD(rec.next_followup));
+  renderAll();
+}
+async function qSet(id, patch){
+  patch.updated_at = new Date().toISOString();
+  const { error } = await sb.from("quotes").update(patch).eq("id", id);
+  if(error){ toast("Save failed: "+error.message); return false; }
+  Object.assign(quotes.find(x=>x.id===id)||{}, patch);
+  renderAll(); return true;
+}
+async function qAdvance(id){
+  const q = quotes.find(x=>x.id===id); if(!q) return;
+  const i = QUOTE_FLOW.indexOf(q.status);
+  const next = QUOTE_FLOW[Math.min(i+1, QUOTE_FLOW.length-1)];
+  const patch = { status: next };
+  if(next==="Paid"){
+    patch.paid_on = todayStr(); patch.next_followup = null;
+    if(q.is_license && !q.renewal_date) patch.renewal_date = addDays(todayStr(),365);
+  } else patch.next_followup = addDays(todayStr(), next==="Payment pending"?2:3);
+  if(await qSet(id, patch)) toast(`${q.company}: ${next}${next==="Paid"?" 🤑":""}`);
+}
+async function qLost(id){
+  const q = quotes.find(x=>x.id===id); if(!q) return;
+  if(await qSet(id,{status:"Lost", next_followup:null})) toast(q.company+": marked lost");
+}
+async function qChase(id){
+  if(await qSet(id,{next_followup: addDays(todayStr(),3)})) toast("Chased — next follow-up in 3 days");
+}
+async function qDelete(id){
+  const { error } = await sb.from("quotes").delete().eq("id", id);
+  if(error){ toast("Delete failed: "+error.message); return; }
+  quotes = quotes.filter(x=>x.id!==id); renderAll();
+}
+async function renewalToLead(id){
+  const q = quotes.find(x=>x.id===id); if(!q) return;
+  const d = await dbInsert({
+    company: q.company, product:"M 365", engagement_type:"Licensing",
+    lead_source:"Existing Client", stage:"New", waiting_on:"Me", budget_confirmed:"Unknown",
+    est_value_aed: Number(q.value_aed)||null, est_close_date: q.renewal_date||null,
+    notes:"License renewal — "+(q.description||""),
+    next_step:"Contact for renewal", next_step_due: q.renewal_date? addDays(q.renewal_date,-21) : todayStr(),
+    last_touch:new Date().toISOString()
+  });
+  if(d){ await qSet(id,{renewal_lead_created:true}); toast(q.company+" renewal lead created — on your board"); }
+}
+function quoteItemHTML(q){
+  const t = todayStr();
+  const due = isOpenQuote(q) && q.next_followup && q.next_followup <= t;
+  const co = accountsByKey.has(q.company_key);
+  const i = QUOTE_FLOW.indexOf(q.status);
+  const next = i>-1 && i<QUOTE_FLOW.length-1 ? QUOTE_FLOW[i+1] : null;
+  const renewChip = q.is_license && q.renewal_date?
+    `<span class="badge ${q.renewal_date<=addDays(t,30)?"b-red":(q.renewal_date<=addDays(t,60)?"b-amber":"b-grey")}">↻ ${fmtD(q.renewal_date)}</span>`:"";
+  return `<div class="task-item" style="${due?"border-left:4px solid var(--red)":""}">
+    <span class="k mono" style="flex:0 0 58px">${fmtD(q.sent_on)}</span>
+    ${co? `<span class="t-co" onclick="openTimeline('${String(q.company_key).replace(/'/g,"\\'")}')">${esc(q.company)}</span>` : `<b>${esc(q.company)}</b>`}
+    <span class="t-title">${esc(q.description||"")}</span>
+    <span class="mono" style="font-size:12.5px">${fmtAED(q.value_aed)}</span>
+    <span class="badge ${QUOTE_BADGE[q.status]||"b-grey"}">${esc(q.status)}</span>
+    ${renewChip}
+    ${due? `<span class="badge b-red">FOLLOW-UP DUE</span>`:""}
+    ${isOpenQuote(q)&&next? `<button class="btn btn-go" style="padding:4px 12px" onclick="qAdvance('${q.id}')">→ ${esc(next)}</button>`:""}
+    ${isOpenQuote(q)? `<button class="btn" style="padding:4px 10px" onclick="qChase('${q.id}')">Chased +3d</button>
+      <button class="btn btn-ghost btn-danger" style="padding:4px 10px" onclick="qLost('${q.id}')">Lost</button>`:""}
+    ${q.status==="Paid"&&q.is_license&&!q.renewal_lead_created? `<button class="btn" style="padding:4px 10px" onclick="renewalToLead('${q.id}')">→ Lead</button>`:""}
+    ${q.renewal_lead_created? `<span class="badge b-money">lead ✓</span>`:""}
+    <button class="btn btn-ghost" style="padding:4px 8px;color:var(--muted)" onclick="qDelete('${q.id}')">✕</button>
+  </div>`;
+}
+function renderQuotes(){
+  if(!$("qList")) return;
+  const t = todayStr();
+  const counts = {
+    open: quotes.filter(isOpenQuote).length,
+    renewals: quotes.filter(q=>q.is_license && q.renewal_date).length,
+    paid: quotes.filter(q=>q.status==="Paid").length,
+    lost: quotes.filter(q=>q.status==="Lost").length,
+    all: quotes.length
+  };
+  $("qFilters").innerHTML = [["open","Open"],["renewals","Renewals ↻"],["paid","Paid"],["lost","Lost"],["all","All"]]
+    .map(([k,l])=>`<button class="btn ${qFilter===k?"on":""}" onclick="qFilter='${k}';renderQuotes()">${l} (${counts[k]})</button>`).join("");
+  let list, note = "";
+  if(qFilter==="renewals"){
+    list = quotes.filter(q=>q.is_license && q.renewal_date).sort((a,b)=>a.renewal_date<b.renewal_date?-1:1);
+    note = `<p style="font-size:12.5px;color:var(--muted);margin:4px 0 10px">Sorted by renewal date — amber inside 60 days, red inside 30. <b>→ Lead</b> puts next year's renewal on your board.</p>`;
+  } else {
+    list = quotes.filter(q=> qFilter==="all"? true : qFilter==="open"? isOpenQuote(q) : qFilter==="paid"? q.status==="Paid" : q.status==="Lost");
+    if(qFilter==="open") list = list.slice().sort((a,b)=>{
+      const pa = (a.status==="Payment pending"||a.status==="PO received")?0:1, pb = (b.status==="Payment pending"||b.status==="PO received")?0:1;
+      return pa-pb || String(a.next_followup||"9999") < String(b.next_followup||"9999") ? -1 : 1;
+    });
+  }
+  const openVal = quotes.filter(isOpenQuote).reduce((s,q)=>s+(Number(q.value_aed)||0),0);
+  $("qList").innerHTML = note + (list.length? list.map(quoteItemHTML).join("") : `<div class="empty">Nothing here yet.</div>`)
+    + `<p class="totals">${counts.open} open quotes · ${fmtAED(openVal)} outstanding</p>`;
+  const nDue = quotes.filter(q=>isOpenQuote(q) && ((q.next_followup&&q.next_followup<=t) || q.status==="Payment pending" || q.status==="PO received")).length;
+  $("quotesCount").textContent = nDue? nDue:"";
+}
+
+/* ================= COMMITMENTS (they owe me) ================= */
+async function addCommitment(){
+  const who = $("cWho").value.trim(), outcome = $("cOutcome").value.trim();
+  if(!who || !outcome){ toast("Who and what — both needed"); return; }
+  const company = $("cCompany").value.trim()||null;
+  const promised = $("cPromised").value||null;
+  const rec = {
+    who, org_type: $("cOrg").value, category: $("cCat").value, outcome,
+    company, company_key: company? nameKey(company):null,
+    requested_on: todayStr(), promised_on: promised,
+    next_followup: promised || addDays(todayStr(),2), status:"open"
+  };
+  const { data, error } = await sb.from("commitments").insert(rec).select().single();
+  if(error){ toast(error.code==="42P01"? "Run migrate_v4_to_v5.sql first — commitments table missing":"Save failed: "+error.message); return; }
+  commitments.unshift(data);
+  ["cWho","cOutcome","cCompany","cPromised"].forEach(i=>$(i).value="");
+  toast(`Logged — follow up ${fmtD(rec.next_followup)}`);
+  renderAll();
+}
+async function cSet(id, patch){
+  patch.updated_at = new Date().toISOString();
+  const { error } = await sb.from("commitments").update(patch).eq("id", id);
+  if(error){ toast("Save failed: "+error.message); return false; }
+  Object.assign(commitments.find(x=>x.id===id)||{}, patch);
+  renderAll(); return true;
+}
+async function cChase(id){
+  const c = commitments.find(x=>x.id===id); if(!c) return;
+  if(await cSet(id,{last_chased: todayStr(), chase_count:(c.chase_count||0)+1, next_followup: addDays(todayStr(),2)}))
+    toast(`Chased ${c.who} — again in 2 days${(c.chase_count||0)+1>=3?" · ⚠ "+((c.chase_count||0)+1)+" chases, consider escalating":""}`);
+}
+async function cDeliver(id){
+  const c = commitments.find(x=>x.id===id); if(!c) return;
+  if(await cSet(id,{status:"delivered", delivered_on: todayStr()})) toast(c.who+" delivered ✓");
+}
+async function cDelete(id){
+  const { error } = await sb.from("commitments").delete().eq("id", id);
+  if(error){ toast("Delete failed: "+error.message); return; }
+  commitments = commitments.filter(x=>x.id!==id); renderAll();
+}
+function commitItemHTML(c){
+  const t = todayStr();
+  const overdue = c.promised_on && c.promised_on < t;
+  const age = daysSince(c.requested_on||c.created_at);
+  const hot = (overdue && daysSince(c.promised_on)>2) || (!c.promised_on && age>7);
+  const dueToday = c.next_followup && c.next_followup <= t;
+  const co = c.company_key && accountsByKey.has(c.company_key);
+  return `<div class="task-item" style="${hot?"border-left:4px solid var(--red)":(dueToday?"border-left:4px solid var(--amber)":"")}">
+    <b style="flex:0 0 auto">${esc(c.who)}</b>
+    <span class="badge ${c.org_type==="Client"?"b-blue":"b-grey"}">${c.org_type==="Client"?"CUSTOMER":"INTERNAL · "+esc(c.org_type)}</span>
+    <span class="badge ${c.category==="Decision"?"b-red":(c.category==="Payment"?"b-money":"b-grey")}">${esc(c.category)}</span>
+    <span class="t-title">${esc(c.outcome)}</span>
+    ${c.company? (co? `<span class="t-co" onclick="openTimeline('${String(c.company_key).replace(/'/g,"\\'")}')">${esc(c.company)}</span>`:`<span class="sub">${esc(c.company)}</span>`):""}
+    <span class="k mono" style="font-size:11.5px">req ${age!=null?age+"d":"—"}${c.promised_on?` · promised ${fmtD(c.promised_on)}${overdue?" ⚠ "+daysSince(c.promised_on)+"d over":""}`:""}${c.chase_count?` · chased ×${c.chase_count}`:""}</span>
+    ${c.status==="open"? `
+      <button class="btn" style="padding:4px 10px" onclick="cChase('${c.id}')">Chased +2d</button>
+      <button class="btn btn-go" style="padding:4px 10px" onclick="cDeliver('${c.id}')">Delivered ✓</button>`
+    : `<span class="badge b-money">✓ ${fmtD(c.delivered_on)}</span>`}
+    <button class="btn btn-ghost" style="padding:4px 8px;color:var(--muted)" onclick="cDelete('${c.id}')">✕</button>
+  </div>`;
+}
+function renderChase(){
+  if(!$("cList")) return;
+  const t = todayStr();
+  const open = commitments.filter(c=>c.status==="open");
+  const chaseNow = c => c.status==="open" && ((c.next_followup && c.next_followup<=t) || (c.promised_on && c.promised_on<t));
+  const counts = { chase: open.filter(chaseNow).length, waiting: open.filter(c=>!chaseNow(c)).length,
+                   done: commitments.filter(c=>c.status!=="open").length, all: commitments.length };
+  $("cFilters").innerHTML = [["chase","Chase now"],["waiting","Waiting"],["done","Delivered"],["all","All"]]
+    .map(([k,l])=>`<button class="btn ${cFilter===k?"on":""}" onclick="cFilter='${k}';renderChase()">${l} (${counts[k]})</button>`).join("");
+  let h = "";
+  if(cFilter==="chase" || cFilter==="waiting"){
+    const pool = open.filter(c=> cFilter==="chase"? chaseNow(c) : !chaseNow(c));
+    const sortF = (a,b)=> (daysSince(b.promised_on||b.requested_on)||0) - (daysSince(a.promised_on||a.requested_on)||0);
+    const internal = pool.filter(c=>c.org_type!=="Client").sort(sortF);
+    const customer = pool.filter(c=>c.org_type==="Client").sort(sortF);
+    h += `<div class="lane"><div class="lane-h"><h2 style="color:var(--red)">Internal blockers</h2><span class="cnt">${internal.length}</span><span class="hint">your own house — escalate repeat offenders</span></div>`;
+    h += internal.length? internal.map(commitItemHTML).join("") : `<div class="empty">No internal blockers.</div>`;
+    h += `</div><div class="lane"><div class="lane-h"><h2 style="color:var(--blue)">Customer blockers</h2><span class="cnt">${customer.length}</span><span class="hint">chase politely, in writing</span></div>`;
+    h += customer.length? customer.map(commitItemHTML).join("") : `<div class="empty">No customer blockers.</div>`;
+    h += `</div>`;
+  } else {
+    const pool = cFilter==="all"? commitments : commitments.filter(c=>c.status!=="open");
+    h = pool.length? pool.map(commitItemHTML).join("") : `<div class="empty">Nothing here.</div>`;
+  }
+  $("cList").innerHTML = h;
+  $("chaseCount").textContent = counts.chase? counts.chase:"";
 }
 </script>
 </body>
