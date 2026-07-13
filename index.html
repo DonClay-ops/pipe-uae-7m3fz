@@ -241,7 +241,9 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
       <h2>Capture — 10 seconds, then back to work</h2>
       <div class="task-add">
         <select id="ibSource" style="flex:0 0 108px;width:auto"><option>Thought</option><option>Email</option><option>Teams</option><option>WhatsApp</option><option>Phone</option><option>Walk-in</option></select>
-        <input id="ibWho" type="text" list="companyList" placeholder="Who (optional)" style="flex:1;min-width:120px">
+        <input id="ibWho" type="text" placeholder="Who (optional)" style="flex:1;min-width:110px">
+        <input id="ibAcct" type="text" list="companyList" placeholder="Account (opt.)" style="flex:1;min-width:120px">
+        <select id="ibProject" style="flex:0 0 150px;width:auto"></select>
         <input id="ibNote" type="text" placeholder="What? (Enter to capture)" style="flex:3;min-width:180px">
         <select id="ibPriority" style="flex:0 0 92px;width:auto"><option>Medium</option><option>High</option><option>Low</option></select>
         <input id="ibRemind" type="datetime-local" style="flex:0 0 190px">
@@ -324,6 +326,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
         <input id="tCompany" type="text" list="companyList" placeholder="Company…">
         <datalist id="companyList"></datalist>
         <input id="tTitle" type="text" placeholder="What needs doing?">
+        <select id="tProject" style="flex:1;min-width:150px"></select>
         <input id="tDue" type="date">
         <button class="btn btn-go" onclick="addTask()">Add</button>
       </div>
@@ -410,6 +413,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <div class="field"><label for="eContact">Contact name</label><input id="eContact" type="text"></div>
     <div class="field"><label for="eProduct">Product</label><select id="eProduct"></select></div>
     <div class="field"><label for="eEng">Engagement type</label><select id="eEng"></select></div>
+    <div class="field"><label for="eDealType">Deal type</label><select id="eDealType"></select></div>
     <div class="field"><label for="eStage">Stage</label><select id="eStage"></select></div>
     <div class="field"><label for="eBudget">Budget confirmed</label><select id="eBudget"></select></div>
     <div class="field"><label for="eWaiting">Whose move</label><select id="eWaiting"></select></div>
@@ -464,7 +468,7 @@ const PRODUCTS = ["","Dynamics 365 Business Central","Dynamics 365 F&O","Dynamic
 const ENGAGEMENTS = ["","New Implementation","Upgrade / Migration","E-Invoicing Compliance","Support / SLA","Change Request","Licensing","Security","Training"];
 const SOURCES = ["","Info Email","Incoming Call","Existing Client","Website","Microsoft Referral","Self Generated","Partner","Marketing Campaign","WhatsApp","Upselling Opportunities","Gitex","Tawk","App Source","BNI Referral","Other"];
 const CAMPAIGNS = ["","UAE e-Invoicing","SLA Renewal","Copilot / AI","Power BI Analytics"];
-const PHASES = ["","Advance","FRDD Sign-off","Licenses & Development","UAT","Training","Project Sign-off","Final Payment","Complete"];
+const PHASES = ["","Open","Advance","FRDD Sign-off","Licenses & Development","UAT","Training","Project Sign-off","Final Payment","Complete"];
 const MONEY_PHASES = new Set(["Advance","Final Payment"]);
 const GENERIC_DOMAINS = new Set(["gmail.com","hotmail.com","outlook.com","yahoo.com","icloud.com","live.com","aol.com"]);
 const BUDGETS = ["Unknown","Yes","No"];
@@ -512,7 +516,7 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v7.1";
+const APP_VERSION = "v8.0";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -594,7 +598,7 @@ async function enterApp(){
   fillSelect($("eProduct"),PRODUCTS); fillSelect($("eEng"),ENGAGEMENTS);
   fillSelect($("eStage"),STAGES); fillSelect($("eBudget"),BUDGETS); fillSelect($("eWaiting"),WAITING);
   fillSelect($("eSource"),SOURCES); fillSelect($("eCampaign"),CAMPAIGNS,"— none —"); fillSelect($("ePhase"),PHASES,"— not in delivery —");
-  fillSelect($("eLost"),LOST_REASONS,"— n/a —");
+  fillSelect($("eLost"),LOST_REASONS,"— n/a —"); fillSelect($("eDealType"),["","Project","License"],"— n/a —");
   await loadRows();
 }
 async function fetchAll(table, orderCol){
@@ -769,12 +773,13 @@ async function flipToMe(id){
 }
 
 /* ================= PIPELINE tab ================= */
-const FILTERS = [["open","Open"],["projects","Projects"],["delivery","Won / delivery"],["nurture","Nurture"],["lost","Lost"],["all","All"]];
+const FILTERS = [["open","Open"],["projects","Projects"],["licenses","Licenses"],["delivery","Won / delivery"],["nurture","Nurture"],["lost","Lost"],["all","All"]];
 const isSLA = r => r.engagement_type==="Support / SLA" || r.campaign==="SLA Renewal" || /\bsla\b/i.test((r.product||"")+" "+(r.notes||""));
-const isActiveProject = r => r.stage==="Won" && r.delivery_phase && r.delivery_phase!=="Complete" && !isSLA(r);
+const isActiveProject = r => r.stage==="Won" && r.delivery_phase && r.delivery_phase!=="Complete" && (r.deal_type? r.deal_type==="Project" : !isSLA(r));
 function pipeRows(){
   switch(pipeFilter){
     case "projects": return rows.filter(isActiveProject);
+    case "licenses": return rows.filter(r=>r.stage==="Won" && r.deal_type==="License");
     case "delivery": return rows.filter(r=>r.stage==="Won");
     case "nurture": return rows.filter(r=>r.stage==="Nurture");
     case "lost": return rows.filter(r=>r.stage==="Lost");
@@ -789,7 +794,7 @@ function renderPipeline(){
   $("pipeFilters").innerHTML = srcBtns + `<span style="flex-basis:100%;height:0"></span>` + FILTERS.map(([k,l])=>`<button class="btn ${pipeFilter===k?"on":""}" onclick="pipeFilter='${k}';renderPipeline()">${l}</button>`).join("");
   const list = pipeRows();
   const byStage = {};
-  const projMode = pipeFilter==="projects";
+  const projMode = pipeFilter==="projects" || pipeFilter==="licenses";
   list.forEach(r=>{ const g = projMode? (r.delivery_phase||"(no phase)") : r.stage; (byStage[g] = byStage[g]||[]).push(r); });
   let h = `<tr><th>Company</th><th>Product</th><th>Whose move</th><th>${projMode?"Days in phase":"Budget"}</th><th>Value</th><th>Last touch</th><th>CRM</th></tr>`;
   if(projMode && !list.length) h += `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No active projects — a project is a Won deal with a delivery phase, excluding SLA/support engagements.</td></tr>`;
@@ -921,7 +926,7 @@ function openDrawer(id){
   editId = id;
   $("dTitle").textContent = r.company;
   $("eCompany").value=r.company; $("eEmail").value=r.contact_email||""; $("eContact").value=r.contact_name||"";
-  $("eProduct").value=r.product||""; $("eEng").value=r.engagement_type||"";
+  $("eProduct").value=r.product||""; $("eEng").value=r.engagement_type||""; $("eDealType").value=r.deal_type||"";
   $("eStage").value=r.stage; $("eBudget").value=r.budget_confirmed||"Unknown"; $("eWaiting").value=r.waiting_on;
   $("eValue").value=r.est_value_aed||""; $("eClose").value=r.est_close_date||"";
   $("eNextDue").value=r.next_step_due||""; $("eSource").value=r.lead_source||""; $("eCampaign").value=r.campaign||"";
@@ -952,12 +957,14 @@ async function saveEdit(){
     next_step: $("eNext").value.trim()||null, next_step_due: $("eNextDue").value||null,
     lead_source: $("eSource").value||null, campaign: $("eCampaign").value||null,
     delivery_phase: $("ePhase").value||null, lost_reason: $("eLost").value||null,
+    deal_type: $("eDealType").value||null,
     notes: $("eNotes").value.trim()||null
   };
   if(newStage==="Lost" || newStage==="Nurture") patch.waiting_on = "Nobody – closed";
   // Won handoff: open the delivery track automatically
   if(newStage==="Won" && r.stage!=="Won" && !patch.delivery_phase){
     patch.delivery_phase="Advance"; patch.phase_since=todayStr();
+    if(!patch.deal_type) patch.deal_type = patch.engagement_type==="Licensing"? "License":"Project";
     patch.waiting_on="Me"; patch.next_step="Invoice & collect advance";
     toast("🏆 Won — advance invoicing is now your move");
   }
@@ -984,6 +991,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
     if($("qLic").checked && !$("qRenew").value) $("qRenew").value = addDays($("qSent").value||todayStr(), 365); });
   $("qSent").addEventListener("change", ()=>{ if($("qLic").checked) $("qRenew").value = addDays($("qSent").value, 365); });
   fillSelect($("cOrg"), ORG_TYPES); fillSelect($("cCat"), COMMIT_CATS);
+  $("tCompany").addEventListener("input", ()=>fillProjectSelect($("tProject"), $("tCompany").value));
+  $("ibAcct").addEventListener("input", ()=>fillProjectSelect($("ibProject"), $("ibAcct").value));
+  fillProjectSelect($("tProject"),""); fillProjectSelect($("ibProject"),"");
   $("fileInput").addEventListener("change", e=>handleFiles(e.target.files));
   const d = dz();
   d.addEventListener("dragover", e=>{e.preventDefault(); d.classList.add("drag");});
@@ -1142,11 +1152,11 @@ async function addTask(){
   const company = $("tCompany").value.trim(), title = $("tTitle").value.trim();
   if(!company){ toast("Pick a company"); return; }
   if(!title){ toast("Say what needs doing"); return; }
-  await createTask(company, title, $("tDue").value || null);
-  $("tTitle").value=""; $("tDue").value="";
+  await createTask(company, title, $("tDue").value || null, $("tProject").value || null);
+  $("tTitle").value=""; $("tDue").value=""; $("tProject").value="";
 }
-async function createTask(company, title, due){
-  const { data, error } = await sb.from("tasks").insert({ company, company_key: nameKey(company), title, due }).select().single();
+async function createTask(company, title, due, project_id){
+  const { data, error } = await sb.from("tasks").insert({ company, company_key: nameKey(company), title, due, project_id: project_id||null }).select().single();
   if(error){ toast("Save failed: "+error.message); return; }
   tasksRows.unshift(data);
   await ensureAccount(company);
@@ -1174,6 +1184,7 @@ function taskItemHTML(t){
     <button class="tick ${t.done?"on":""}" onclick="toggleTask('${t.id}')" aria-label="toggle">${t.done?"✓":""}</button>
     <span class="t-title">${esc(t.title)}</span>
     <span class="t-co" onclick="openTimeline(nameKey('${esc(t.company).replace(/'/g,"\\'")}'), '${esc(t.company).replace(/'/g,"\\'")}')">${esc(t.company)}</span>
+    ${projChip(t.project_id)}
     ${t.due? `<span class="badge ${overdue?"b-red":"b-grey"}">${overdue?"⚠ ":""}${fmtD(t.due)}</span>`:""}
     <button class="btn btn-ghost" style="padding:2px 8px;color:var(--muted)" onclick="delTask('${t.id}')" aria-label="delete">✕</button>
   </div>`;
@@ -1240,8 +1251,11 @@ function fillTimeline(){
     else if(x.due) ev.push({d:x.due, txt:`Task ${x.due<t?"OVERDUE":"due"}: ${x.title}`, k:x.due<t?"overdue":"due"});
     ev.push({d:x.created_at, txt:`Task added: ${x.title}`, k:"task"});
   });
+  inboxRows.filter(x=>x.company_key===key).forEach(x=>{
+    ev.push({d:x.captured_at, txt:`Captured (${x.source||"?"}${x.who?" · "+x.who:""}): ${x.note}${x.status!=="new"?" — "+x.status:""}${projName(x.project_id)}`, k:x.status==="new"?"crm":"done"});
+  });
   rows.filter(r=>nameKey(r.company)===key).forEach(r=>{
-    ev.push({d:r.created_at, txt:`Added to pipeline — ${r.stage}${r.product? " · "+r.product:""}${r.est_value_aed? " · "+fmtAED(r.est_value_aed):""}`, k:"task"});
+    ev.push({d:r.created_at, txt:`Added to pipeline — ${r.stage}${r.deal_type? " · "+r.deal_type:""}${r.product? " · "+r.product:""}${r.est_value_aed? " · "+fmtAED(r.est_value_aed):""}`, k:"task"});
     if(r.last_touch) ev.push({d:r.last_touch, txt:`Last touch — ${r.waiting_on==="Me"?"your move":"their move"} (${r.stage})`, k:"due"});
     if(r.next_step_due && !CLOSED_STAGES.has(r.stage)) ev.push({d:r.next_step_due, txt:`Next step ${r.next_step_due<t?"OVERDUE":"due"}: ${r.next_step||"—"}`, k:r.next_step_due<t?"overdue":"due"});
     if(r.stage==="Lost" && r.lost_reason) ev.push({d:r.updated_at||r.created_at, txt:`Lost — ${r.lost_reason}`, k:"overdue"});
@@ -1400,11 +1414,13 @@ async function captureItem(){
   const note = $("ibNote").value.trim();
   if(!note){ toast("Say what it is — one line"); return; }
   const who = $("ibWho").value.trim() || null;
+  const acct = $("ibAcct").value.trim() || null;
   const rec = {
-    source: $("ibSource").value, who, note,
+    source: $("ibSource").value, who, note, account: acct,
     priority: $("ibPriority").value,
     remind_at: $("ibRemind").value? new Date($("ibRemind").value).toISOString() : null,
-    status: "new", company_key: who? nameKey(who) : null
+    status: "new", company_key: acct? nameKey(acct) : (who? nameKey(who) : null),
+    project_id: $("ibProject").value || null
   };
   const { data, error } = await sb.from("inbox").insert(rec).select().single();
   if(error){
@@ -1412,7 +1428,8 @@ async function captureItem(){
     return;
   }
   inboxRows.unshift(data);
-  $("ibNote").value=""; $("ibWho").value=""; $("ibRemind").value="";
+  if(acct) await ensureAccount(acct);
+  $("ibNote").value=""; $("ibWho").value=""; $("ibAcct").value=""; $("ibRemind").value=""; $("ibProject").value="";
   toast("Captured — back to what you were doing");
   renderInbox(); renderHeader();
 }
@@ -1431,7 +1448,7 @@ async function ibDelete(id){
 async function ibToTask(id){
   const it = inboxRows.find(x=>x.id===id); if(!it) return;
   const due = it.remind_at? String(it.remind_at).slice(0,10) : todayStr();
-  await createTask(it.who || "General", it.note, due);
+  await createTask(it.account || it.who || "General", it.note, due, it.project_id||null);
   await ibSet(id, {status:"converted"});
   toast("Now a task" + (it.who? " for "+it.who : ""));
 }
@@ -1466,7 +1483,9 @@ function renderInbox(){
     return `<div class="task-item" style="${due?"border-left:4px solid var(--red)":""}">
       <span class="k mono" style="font-size:11.5px;color:var(--muted);flex:0 0 92px">${fmtDT(x.captured_at)}</span>
       <span class="src-badge src-${esc((x.source||"Thought").replace(/\s/g,"-"))}">${esc(x.source||"?")}</span>
-      ${x.who? (co? `<span class="t-co" onclick="openTimeline(nameKey('${esc(x.who).replace(/'/g,"\\'")}'),'${esc(x.who).replace(/'/g,"\\'")}')">${esc(x.who)}</span>` : `<b>${esc(x.who)}</b>`) : ""}
+      ${x.who? `<b>${esc(x.who)}</b>` : ""}
+      ${x.account? `<span class="t-co" onclick="openTimeline(nameKey('${esc(x.account).replace(/'/g,"\\'")}'),'${esc(x.account).replace(/'/g,"\\'")}')">${esc(x.account)}</span>` : (x.who&&co? `<span class="t-co" onclick="openTimeline(nameKey('${esc(x.who).replace(/'/g,"\\'")}'),'${esc(x.who).replace(/'/g,"\\'")}')">↳ timeline</span>`:"")}
+      ${projChip(x.project_id)}
       <span class="t-title">${esc(x.note)}</span>
       ${x.priority==="High"? `<span class="badge b-red">HIGH</span>`:""}
       ${x.remind_at? `<span class="badge ${due?"b-red":"b-grey"}">${due?"⏰ DUE — ":""}${fmtDT(x.remind_at)}</span>`:""}
@@ -1775,6 +1794,31 @@ function renderChase(){
   }
   $("cList").innerHTML = h;
   $("chaseCount").textContent = counts.chase? counts.chase:"";
+}
+
+/* ================= PROJECT LINKING HELPERS ================= */
+function openProjectsOf(companyVal){
+  const key = nameKey(companyVal||"");
+  if(!key) return [];
+  return rows.filter(r=>nameKey(r.company)===key && isOpen(r));
+}
+function projLabel(r){
+  return `${r.stage==="Won"? "📦 "+(r.deal_type||"delivery")+(r.delivery_phase?" · "+r.delivery_phase:"") : r.stage}${r.product? " · "+r.product : (r.notes? " · "+r.notes.slice(0,28):"")}`;
+}
+function fillProjectSelect(sel, companyVal){
+  const list = openProjectsOf(companyVal);
+  sel.innerHTML = `<option value="">— no project —</option>` + list.map(r=>`<option value="${r.id}">${esc(projLabel(r))}</option>`).join("");
+  sel.disabled = !list.length;
+}
+function projChip(pid){
+  if(!pid) return "";
+  const r = rows.find(x=>x.id===pid);
+  return r? `<span class="badge b-blue">📦 ${esc((r.deal_type||"project")+(r.delivery_phase? " · "+r.delivery_phase:""))}</span>` : "";
+}
+function projName(pid){
+  if(!pid) return "";
+  const r = rows.find(x=>x.id===pid);
+  return r? ` [${(r.deal_type||"project")}${r.notes? ": "+r.notes.slice(0,25):""}]` : "";
 }
 </script>
 </body>
