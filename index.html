@@ -512,7 +512,7 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v7.0";
+const APP_VERSION = "v7.1";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -769,9 +769,12 @@ async function flipToMe(id){
 }
 
 /* ================= PIPELINE tab ================= */
-const FILTERS = [["open","Open"],["delivery","Won / delivery"],["nurture","Nurture"],["lost","Lost"],["all","All"]];
+const FILTERS = [["open","Open"],["projects","Projects"],["delivery","Won / delivery"],["nurture","Nurture"],["lost","Lost"],["all","All"]];
+const isSLA = r => r.engagement_type==="Support / SLA" || r.campaign==="SLA Renewal" || /\bsla\b/i.test((r.product||"")+" "+(r.notes||""));
+const isActiveProject = r => r.stage==="Won" && r.delivery_phase && r.delivery_phase!=="Complete" && !isSLA(r);
 function pipeRows(){
   switch(pipeFilter){
+    case "projects": return rows.filter(isActiveProject);
     case "delivery": return rows.filter(r=>r.stage==="Won");
     case "nurture": return rows.filter(r=>r.stage==="Nurture");
     case "lost": return rows.filter(r=>r.stage==="Lost");
@@ -786,9 +789,11 @@ function renderPipeline(){
   $("pipeFilters").innerHTML = srcBtns + `<span style="flex-basis:100%;height:0"></span>` + FILTERS.map(([k,l])=>`<button class="btn ${pipeFilter===k?"on":""}" onclick="pipeFilter='${k}';renderPipeline()">${l}</button>`).join("");
   const list = pipeRows();
   const byStage = {};
-  list.forEach(r=>{ (byStage[r.stage] = byStage[r.stage]||[]).push(r); });
-  let h = `<tr><th>Company</th><th>Product</th><th>Whose move</th><th>Budget</th><th>Value</th><th>Last touch</th><th>CRM</th></tr>`;
-  STAGES.forEach(st=>{
+  const projMode = pipeFilter==="projects";
+  list.forEach(r=>{ const g = projMode? (r.delivery_phase||"(no phase)") : r.stage; (byStage[g] = byStage[g]||[]).push(r); });
+  let h = `<tr><th>Company</th><th>Product</th><th>Whose move</th><th>${projMode?"Days in phase":"Budget"}</th><th>Value</th><th>Last touch</th><th>CRM</th></tr>`;
+  if(projMode && !list.length) h += `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No active projects — a project is a Won deal with a delivery phase, excluding SLA/support engagements.</td></tr>`;
+  (projMode? PHASES.filter(x=>x).concat(["(no phase)"]) : STAGES).forEach(st=>{
     const grp = byStage[st]; if(!grp) return;
     h += `<tr class="stage-grp"><td colspan="7">${esc(st)} · ${grp.length}</td></tr>`;
     grp.forEach(r=>{
@@ -799,7 +804,7 @@ function renderPipeline(){
         <td><b>${esc(r.company)}</b>${phase}${lost}${r.notes?`<div class="sub">${esc(r.notes.slice(0,70))}</div>`:""}</td>
         <td>${esc(r.product||"—")}</td>
         <td>${esc(r.waiting_on)}</td>
-        <td>${r.budget_confirmed==="Unknown"&&LATE_STAGES.has(r.stage)?'<span class="badge b-amber">Unknown ⚠</span>':esc(r.budget_confirmed||"—")}</td>
+        <td>${projMode? (r.phase_since? `<span class="mono">${daysSince(r.phase_since)}d${daysSince(r.phase_since)>14?' <span class="badge b-amber">SLOW</span>':''}</span>`:"—") : (r.budget_confirmed==="Unknown"&&LATE_STAGES.has(r.stage)?'<span class="badge b-amber">Unknown ⚠</span>':esc(r.budget_confirmed||"—"))}</td>
         <td class="mono">${fmtAED(r.est_value_aed)}</td>
         <td class="mono">${fmtD(r.last_touch)}</td>
         <td>${crm}</td></tr>`;
