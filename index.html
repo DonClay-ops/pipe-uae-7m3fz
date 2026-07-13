@@ -337,6 +337,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 
   <div id="view-targets" class="hidden">
     <div class="panel" style="padding:14px 18px">
+      <div class="filters" id="tgMode" style="margin-bottom:10px"></div>
       <div class="filters" id="tgCats" style="margin-bottom:10px"></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <select id="tgCountry" style="width:auto;min-width:170px" onchange="renderTargets()"></select>
@@ -464,7 +465,7 @@ const STAGE_PROB = {"New":5,"Qualifying":10,"Demo":30,"Proposal":50,"Negotiation
 const CLOSED_STAGES = new Set(["Lost"]);
 const LATE_STAGES = new Set(["Proposal","Negotiation"]);
 const LOST_REASONS = ["","Budget","Competitor","Went quiet","Not interested","Can't deliver"];
-const PRODUCTS = ["","Dynamics 365 Business Central","Dynamics 365 F&O","Dynamics 365 CRM","Power BI","Power Platform","Microsoft SharePoint","M 365","Microsoft Copilot","Microsoft Azure","AI Solutions","ISV-HR-BC","ISV-HR-F&O","ISV-PMS-BC","ISV-PMS-F&O","E-Invoicing","Zatca","Dynamics GP","Dynamics AX","Dynamics NAV","Migration","Third Party"];
+const PRODUCTS = ["","Dynamics 365 Business Central","Dynamics 365 F&O","Dynamics 365 CRM","Power BI","Power Platform","Microsoft SharePoint","M 365","Microsoft Copilot","Microsoft Azure","AI Solutions","ISV-HR-BC","ISV-HR-F&O","ISV-PMS-BC","ISV-PMS-F&O","E-Invoicing","Zatca","Cybersecurity","Dynamics GP","Dynamics AX","Dynamics NAV","Migration","Third Party"];
 const ENGAGEMENTS = ["","New Implementation","Upgrade / Migration","E-Invoicing Compliance","Support / SLA","Change Request","Licensing","Security","Training"];
 const SOURCES = ["","Info Email","Incoming Call","Existing Client","Website","Microsoft Referral","Self Generated","Partner","Marketing Campaign","WhatsApp","Upselling Opportunities","Gitex","Tawk","App Source","BNI Referral","Other"];
 const CAMPAIGNS = ["","UAE e-Invoicing","SLA Renewal","Copilot / AI","Power BI Analytics"];
@@ -509,6 +510,7 @@ let tasksRows = [], accounts = [], crmOpps = [], accountsByKey = new Map(), tlKe
 let todayFilter = "all", pipeSource = "crm", crmFilter = "open", dashFilter = "open";
 let inboxRows = [], ibFilter = "open";
 let quotes = [], qFilter = "open", commitments = [], cFilter = "chase";
+let tgMode = "gaps", rnWindow = 90;
 const QUOTE_FLOW = ["Sent","Chasing","PO received","Payment pending","Paid"];
 const QUOTE_BADGE = {"Sent":"b-grey","Chasing":"b-amber","PO received":"b-blue","Payment pending":"b-red","Paid":"b-money","Lost":"b-red"};
 const ORG_TYPES = ["Client","Consultant","PM","Finance","Vendor","Microsoft","Other"];
@@ -516,7 +518,7 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v8.0";
+const APP_VERSION = "v9.0";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -796,7 +798,7 @@ function renderPipeline(){
   const byStage = {};
   const projMode = pipeFilter==="projects" || pipeFilter==="licenses";
   list.forEach(r=>{ const g = projMode? (r.delivery_phase||"(no phase)") : r.stage; (byStage[g] = byStage[g]||[]).push(r); });
-  let h = `<tr><th>Company</th><th>Product</th><th>Whose move</th><th>${projMode?"Days in phase":"Budget"}</th><th>Value</th><th>Last touch</th><th>CRM</th></tr>`;
+  let h = `<tr><th>Company</th><th>Product</th><th>Whose move</th><th>${projMode?"Days in phase":"Budget"}</th><th>Value</th><th>Last touch</th><th>${projMode?"Next step (yours)":"CRM"}</th></tr>`;
   if(projMode && !list.length) h += `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No active projects — a project is a Won deal with a delivery phase, excluding SLA/support engagements.</td></tr>`;
   (projMode? PHASES.filter(x=>x).concat(["(no phase)"]) : STAGES).forEach(st=>{
     const grp = byStage[st]; if(!grp) return;
@@ -812,7 +814,7 @@ function renderPipeline(){
         <td>${projMode? (r.phase_since? `<span class="mono">${daysSince(r.phase_since)}d${daysSince(r.phase_since)>14?' <span class="badge b-amber">SLOW</span>':''}</span>`:"—") : (r.budget_confirmed==="Unknown"&&LATE_STAGES.has(r.stage)?'<span class="badge b-amber">Unknown ⚠</span>':esc(r.budget_confirmed||"—"))}</td>
         <td class="mono">${fmtAED(r.est_value_aed)}</td>
         <td class="mono">${fmtD(r.last_touch)}</td>
-        <td>${crm}</td></tr>`;
+        <td>${projMode? (r.next_step? `${esc(r.next_step)}${r.next_step_due?` <span class="mono" style="font-size:11.5px;color:${r.next_step_due<todayStr()?"var(--red)":"var(--muted)"}">${r.next_step_due<todayStr()?"⚠ ":""}${fmtD(r.next_step_due)}</span>`:""}` : `<span style="color:var(--red)">— plan one</span>`) : crm}</td></tr>`;
     });
   });
   $("pipeTable").innerHTML = h;
@@ -931,6 +933,10 @@ function openDrawer(id){
   $("eValue").value=r.est_value_aed||""; $("eClose").value=r.est_close_date||"";
   $("eNextDue").value=r.next_step_due||""; $("eSource").value=r.lead_source||""; $("eCampaign").value=r.campaign||"";
   $("ePhase").value=r.delivery_phase||""; $("eLost").value=r.lost_reason||""; $("eNext").value=r.next_step||""; $("eNotes").value=r.notes||"";
+  const won = r.stage==="Won";
+  ["eSource","eCampaign","eLost","eStage","eBudget"].forEach(id=>{
+    const f = $(id).closest(".field"); if(f) f.classList.toggle("hidden", won);
+  });
   $("eCross").innerHTML = crossSellHTML(nameKey(r.company));
   $("eMeta").textContent = `created ${fmtD(r.created_at)} · last touch ${fmtD(r.last_touch)}` + (r.crm_status==="in_crm"?` · ✔ in CRM (${r.crm_topic||"matched"})`:(r.crm_status==="not_in_crm"?" · not in CRM":""));
   $("overlay").classList.add("open"); $("drawer").classList.add("open");
@@ -1315,6 +1321,9 @@ function targetAgg(){
 }
 function renderTargets(){
   if(!$("tgTable")) return;
+  $("tgMode").innerHTML = [["gaps","Solution gaps"],["renewals","M365 renewals ↻"]]
+    .map(([k,l])=>`<button class="btn ${tgMode===k?"on":""}" onclick="tgMode='${k}';renderTargets()">${l}</button>`).join("");
+  if(tgMode==="renewals"){ renderRenewals(); return; }
   const agg = targetAgg();
   const gaps = a => TG_CATS.filter(c=>a.cats.has(c) && !a.won.has(c));
   const counts = {}; TG_CATS.forEach(c=>counts[c]=0);
@@ -1819,6 +1828,84 @@ function projName(pid){
   if(!pid) return "";
   const r = rows.find(x=>x.id===pid);
   return r? ` [${(r.deal_type||"project")}${r.notes? ": "+r.notes.slice(0,25):""}]` : "";
+}
+
+/* ================= M365 RENEWALS RADAR ================= */
+function nextAnniversary(dateStr){
+  if(!dateStr) return null;
+  const t = todayStr(), md = String(dateStr).slice(5,10);
+  const y = Number(t.slice(0,4));
+  let cand = y + "-" + md;
+  if(cand < t && cand >= addDays(t,-30)) return cand;   // recently missed → show as overdue
+  if(cand < t) cand = (y+1) + "-" + md;
+  return cand;
+}
+function m365Anchors(){
+  const m = new Map();
+  crmOpps.forEach(o=>{
+    if(!/m ?365/i.test(o.product||"")) return;
+    const k = o.account_key; if(!k) return;
+    const cur = m.get(k);
+    if(!cur || String(o.crm_created||"") > String(cur.crm_created||"")) m.set(k, o);
+  });
+  return m;
+}
+function renderRenewals(){
+  $("tgCats").innerHTML = [[90,"Next 3 months"],[180,"Next 6 months"],[9999,"All"]]
+    .map(([k,l])=>`<button class="btn ${rnWindow===k?"on":""}" onclick="rnWindow=${k};renderTargets()">${l}</button>`).join("");
+  const t = todayStr();
+  const cSel = $("tgCountry"), iSel = $("tgIndustry");
+  const anchors = [...m365Anchors().values()];
+  const cset = new Set(["All countries"]);
+  anchors.forEach(o=>{ const a=accountsByKey.get(o.account_key); cset.add((a&&a.country)||"Unknown"); });
+  const cPrev = cSel.value||"All countries";
+  cSel.innerHTML = [...cset].map(c=>`<option ${c===cPrev?"selected":""}>${esc(c)}</option>`).join("");
+  iSel.innerHTML = `<option>All industries</option>`; iSel.disabled = true;
+  const q = ($("tgSearch").value||"").toLowerCase();
+  const daysTo = d => Math.round((new Date(d) - new Date(t))/86400000);
+  let list = anchors.map(o=>({o, renew: o.renewal_date || nextAnniversary(o.crm_created), acc: accountsByKey.get(o.account_key)}))
+    .filter(x=>x.renew)
+    .filter(x=>daysTo(x.renew) <= rnWindow)
+    .filter(x=>{ const co=(x.acc&&x.acc.country)||"Unknown"; return cSel.value==="All countries"||co===cSel.value; })
+    .filter(x=>!q || (x.o.account||"").toLowerCase().includes(q))
+    .sort((a,b)=> a.renew < b.renew ? -1 : 1);
+  let h = `<tr><th>Account</th><th>Country</th><th>Last M365 opp</th><th>Inquiry</th><th>Renewal ↻</th><th>Due in</th><th>Value</th><th></th></tr>`;
+  if(!list.length) h += `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No M365 renewals in this window.</td></tr>`;
+  list.forEach(x=>{
+    const d = daysTo(x.renew);
+    const badge = d<0? `<span class="badge b-red">${-d}d overdue</span>` : d<=30? `<span class="badge b-red">${d}d</span>` : d<=90? `<span class="badge b-amber">${d}d</span>` : `<span class="badge b-grey">${d}d</span>`;
+    const st = x.o.status==="Won"? `<span class="badge b-money">Won</span>` : (x.o.status||"").startsWith("Lost")? `<span class="badge b-red">Lost</span>` : `<span class="badge b-blue">${esc(x.o.status||"?")}</span>`;
+    h += `<tr onclick="openTimeline('${String(x.o.account_key).replace(/'/g,"\\'")}')">
+      <td><b>${esc(x.o.account)}</b><div class="sub">${esc(x.o.topic||"")}</div></td>
+      <td>${esc((x.acc&&x.acc.country)||"Unknown")}</td>
+      <td>${st}</td>
+      <td class="mono">${fmtD(x.o.crm_created)}</td>
+      <td onclick="event.stopPropagation()"><input type="date" value="${x.renew}" style="width:auto;padding:4px 6px;font-size:13px" onchange="rnSetDate('${esc(x.o.crm_id)}', this.value)"></td>
+      <td>${badge}</td>
+      <td class="mono">${fmtAED(x.o.est_revenue)}</td>
+      <td onclick="event.stopPropagation()"><button class="btn btn-go" style="padding:4px 12px" onclick="rnToLead('${esc(x.o.crm_id)}')">→ Lead</button></td></tr>`;
+  });
+  $("tgTable").innerHTML = h;
+  $("tgTotals").textContent = `${list.length} M365 renewal account(s) in window · renewal date defaults to the inquiry anniversary — edit it once, it sticks (won AND lost deals included: a lost M365 deal renews with someone, and that's your way back in)`;
+}
+async function rnSetDate(crmId, val){
+  const o = crmOpps.find(x=>x.crm_id===crmId); if(!o||!val) return;
+  const { error } = await sb.from("crm_opps").update({ renewal_date: val }).eq("crm_id", crmId);
+  if(error){ toast(error.code==="42703"? "Run migrate_v6_to_v7.sql first — renewal_date column missing" : "Save failed: "+error.message); return; }
+  o.renewal_date = val; toast(`${o.account} renewal → ${fmtD(val)}`); renderTargets();
+}
+async function rnToLead(crmId){
+  const o = crmOpps.find(x=>x.crm_id===crmId); if(!o) return;
+  const renew = o.renewal_date || nextAnniversary(o.crm_created);
+  const d = await dbInsert({
+    company: o.account, product:"M 365", engagement_type:"Licensing",
+    lead_source:"Existing Client", stage:"New", waiting_on:"Me", budget_confirmed:"Unknown",
+    est_value_aed: Number(o.est_revenue)||null, est_close_date: renew,
+    notes: "M365 renewal — " + (o.topic||"") + ((o.status||"").startsWith("Lost")? " (lost to competitor last time — win it back)":""),
+    next_step: "Contact for M365 renewal", next_step_due: renew? addDays(renew,-21) : todayStr(),
+    last_touch: new Date().toISOString()
+  });
+  if(d) toast(`${o.account} renewal lead on your board — follow up ${fmtD(addDays(renew,-21))}`);
 }
 </script>
 </body>
