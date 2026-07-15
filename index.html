@@ -266,6 +266,12 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
         <span style="font-size:12.5px;color:var(--muted)">Everything below is your CRM opportunity history — refresh it via Weekly sync.</span>
       </div>
     </div>
+    <div class="kpi-grid" id="dashClose"></div>
+    <div class="panel"><h2>2026 month by month — won vs open (by est. close)</h2>
+      <div id="dashMonths"></div>
+      <p style="font-size:12px;color:var(--muted);margin-top:6px"><span style="display:inline-block;width:10px;height:10px;background:var(--go);border-radius:2px"></span> won &nbsp; <span style="display:inline-block;width:10px;height:10px;background:var(--blue);border-radius:2px"></span> open pipeline &nbsp;·&nbsp; open value sitting in past months = slipped deals, fix their close dates</p>
+      <p class="totals" id="dashPre"></p>
+    </div>
     <div class="kpi-grid" id="dashKpis"></div>
     <div class="grid2" style="gap:16px">
       <div class="panel"><h2>Value by stage</h2><div id="dashStage"></div></div>
@@ -377,11 +383,11 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
   <div id="view-sync" class="hidden">
     <div class="panel">
       <h2>Weekly CRM sync</h2>
-      <p style="font-size:14px;color:var(--muted);margin-bottom:14px">
-        Drop your D365 <b>Leads</b> and <b>Opportunities</b> exports here (Excel or CSV, both at once is fine).
-        Records are matched to your pipeline by <b>contact email</b>, then <b>email / website domain</b>, then <b>company name</b> — so opportunity exports without an email column still match.
-        Nothing is written until you press an Apply button.
+      <p style="font-size:14px;color:var(--muted);margin-bottom:8px">
+        Drop your D365 <b>Leads</b> and <b>Opportunities</b> exports here (both at once is fine) — they're recognised automatically, no column mapping.
+        Rules: only <b>New</b> leads are importable (Qualified → archive); opportunities import only when <b>not Won / not Budget-lost</b> (those → archive). Nothing is written until you press a button.
       </p>
+      <p id="lastUploads" class="mono" style="font-size:12.5px;color:var(--muted);margin-bottom:14px"></p>
       <div class="dropzone" id="dropzone">
         Drop files here, or
         <label style="display:inline;text-transform:none;font-size:14px;color:var(--go);text-decoration:underline;cursor:pointer;font-weight:600">
@@ -396,9 +402,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
         <div class="map-row"><label style="margin:0">Topic</label><select id="mapTopic"></select></div>
         <button class="btn btn-go" style="margin-top:8px" onclick="runMatch()">Run match</button>
         <span id="rowsLoaded" class="k" style="font-size:13px;color:var(--muted);margin-left:10px"></span>
-        <div id="importPanel" class="hidden" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"></div>
+
       </div>
     </div>
+    <div id="importPanel" class="hidden panel"></div>
     <div id="syncResults"></div>
   </div>
 </main>
@@ -518,7 +525,7 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v10.0";
+const APP_VERSION = "v11.0";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -607,6 +614,7 @@ async function enterApp(){
   fillSelect($("eStage"),STAGES); fillSelect($("eBudget"),BUDGETS); fillSelect($("eWaiting"),WAITING);
   fillSelect($("eSource"),SOURCES); fillSelect($("eCampaign"),CAMPAIGNS,"— none —"); fillSelect($("ePhase"),PHASES,"— not in delivery —");
   fillSelect($("eLost"),LOST_REASONS,"— n/a —"); fillSelect($("eDealType"),["","Project","License"],"— n/a —");
+  $("lastUploads").innerHTML = lastUploadsHTML();
   await loadRows();
 }
 async function fetchAll(table, orderCol){
@@ -868,7 +876,10 @@ function barRows(pairs, alt){
 function renderDash(){
   if(!$("dashKpis")) return;
   $("dashFilters").innerHTML = CRM_FILTERS.map(([k,l])=>`<button class="btn ${dashFilter===k?"on":""}" onclick="dashFilter='${k}';renderDash()">${l==="Open"?"Open (my focus)":l}</button>`).join("");
-  let list = crmOpps.filter(o=>crmStatusMatch(o,dashFilter));
+  const Y = "2026";
+  const in2026 = o => String(o.est_close||"").startsWith(Y) || String(o.crm_created||"").startsWith(Y);
+  let list = crmOpps.filter(o=>crmStatusMatch(o,dashFilter)).filter(in2026);
+  renderDashClose(in2026);
   const prev = $("dashProduct").value || "All products";
   const prods = new Set(["All products"]); list.forEach(o=>{ if(o.product) prods.add(o.product); });
   $("dashProduct").innerHTML = [...prods].sort((a,b)=>a==="All products"?-1:b==="All products"?1:a.localeCompare(b)).map(x=>`<option ${x===prev?"selected":""}>${esc(x)}</option>`).join("");
@@ -1019,14 +1030,26 @@ function fmtSheetDate(v){
   const P = n=>String(n).padStart(2,"0");
   return `${d.getFullYear()}-${P(d.getMonth()+1)}-${P(d.getDate())}T${P(d.getHours())}:${P(d.getMinutes())}:00`;
 }
+function parseFileDate(name){
+  const m = String(name).match(/(\d{1,2})-(\d{1,2})-(\d{4})/);
+  if(!m) return null;
+  const P = n=>String(n).padStart(2,"0");
+  return `${m[3]}-${P(m[1])}-${P(m[2])}`;
+}
+function lastUploadsHTML(){
+  let o=null,l=null;
+  try{ o=JSON.parse(localStorage.getItem("sync_last_opps")||"null"); l=JSON.parse(localStorage.getItem("sync_last_leads")||"null"); }catch(e){}
+  const f=x=>x&&x.date? fmtD(x.date)+" "+String(x.date).slice(0,4) : "never";
+  return `Last upload — Opportunities: <b>${f(o)}</b> · Leads: <b>${f(l)}</b>`;
+}
+let syncFiles = [];
 async function handleFiles(files){
-  syncRows = []; syncHeaders = [];
+  syncRows = []; syncHeaders = []; syncFiles = [];
   for(const f of files){
     const buf = await f.arrayBuffer();
     const wb = XLSX.read(buf, {type:"array", cellDates:true});
     const ws = wb.Sheets[wb.SheetNames[0]];
     const grid = XLSX.utils.sheet_to_json(ws, {header:1, defval:""});
-    // find header row within first 6 rows: the one with the most string cells incl. an email/company-ish header
     let hIdx = 0, best = -1;
     for(let i=0;i<Math.min(6,grid.length);i++){
       const cells = grid[i].filter(c=>typeof c==="string" && c.trim());
@@ -1035,36 +1058,164 @@ async function handleFiles(files){
       if(score>best){ best=score; hIdx=i; }
     }
     const headers = grid[hIdx].map(h=>String(h).trim());
+    const rows2 = [];
     for(let i=hIdx+1;i<grid.length;i++){
       const row = grid[i];
       if(row.every(c=>c===""||c==null)) continue;
       const obj = {};
       headers.forEach((h,j)=>{ const v=row[j]; if(h) obj[h] = v==null?"":(v instanceof Date? fmtSheetDate(v) : String(v).trim()); });
       obj.__file = f.name;
-      syncRows.push(obj);
+      rows2.push(obj);
     }
-    headers.forEach(h=>{ if(h && !syncHeaders.includes(h)) syncHeaders.push(h); });
+    const kind = headers.some(h=>/^\(do not modify\) opportunity$/i.test(h)) ? "opps"
+               : headers.some(h=>/^\(do not modify\) lead$/i.test(h)) ? "leads" : "other";
+    const fd = parseFileDate(f.name);
+    if(kind!=="other" && fd) localStorage.setItem("sync_last_"+kind, JSON.stringify({date:fd, file:f.name, at:new Date().toISOString()}));
+    syncFiles.push({name:f.name, kind, headers, rows:rows2, filedate:fd});
+    if(kind==="other"){
+      rows2.forEach(r=>syncRows.push(r));
+      headers.forEach(h=>{ if(h && !syncHeaders.includes(h)) syncHeaders.push(h); });
+    }
   }
-  if(!syncRows.length){ toast("No rows found in those files"); return; }
-  const opts = ["", ...syncHeaders];
-  const pick = re => syncHeaders.find(h=>re.test(h)) || "";
-  fillSelect($("mapEmail"), opts, "— none —");   $("mapEmail").value   = pick(/e-?mail/i);
-  fillSelect($("mapCompany"), opts, "— none —"); $("mapCompany").value = pick(/company|account/i) || pick(/^name$/i);
-  fillSelect($("mapWebsite"), opts, "— none —"); $("mapWebsite").value = pick(/website|url/i);
-  fillSelect($("mapTopic"), opts, "— none —");   $("mapTopic").value   = pick(/topic/i);
-  $("rowsLoaded").textContent = `${syncRows.length} rows loaded from ${new Set(syncRows.map(r=>r.__file)).size} file(s)`;
-  $("mapPanel").classList.remove("hidden");
-  const guidCol = syncHeaders.find(h=>/^\(do not modify\) opportunity$/i.test(h));
-  const ip = $("importPanel");
-  if(guidCol){
-    const n = syncRows.filter(r=>r[guidCol]).length;
-    ip.innerHTML = `<b style="font-family:var(--font-display);font-size:16px;text-transform:uppercase">Opportunity export detected</b>
-      <p style="font-size:13px;color:var(--muted);margin:6px 0 10px">Refresh your Targets database: upserts ${n} opportunities by CRM id (re-imports are safe, nothing duplicates) and creates any new accounts.</p>
-      <button class="btn btn-go" onclick="importOpps()">Import / refresh ${n} opportunities → Targets</button>
-      <span id="impProg" class="k" style="margin-left:10px"></span>`;
-    ip.classList.remove("hidden");
-  } else { ip.classList.add("hidden"); ip.innerHTML=""; }
+  $("lastUploads").innerHTML = lastUploadsHTML();
+  renderSyncPanels();
+  if(syncRows.length){
+    const opts = ["", ...syncHeaders];
+    const pick = re => syncHeaders.find(h=>re.test(h)) || "";
+    fillSelect($("mapEmail"), opts, "— none —");   $("mapEmail").value   = pick(/e-?mail/i);
+    fillSelect($("mapCompany"), opts, "— none —"); $("mapCompany").value = pick(/company|account/i) || pick(/^name$/i);
+    fillSelect($("mapWebsite"), opts, "— none —"); $("mapWebsite").value = pick(/website|url/i);
+    fillSelect($("mapTopic"), opts, "— none —");   $("mapTopic").value   = pick(/topic/i);
+    $("rowsLoaded").textContent = `${syncRows.length} rows from unrecognised file(s) — map columns and Run match`;
+    $("mapPanel").classList.remove("hidden");
+  } else {
+    $("mapPanel").classList.add("hidden");
+  }
   $("syncResults").innerHTML = "";
+  if(!syncFiles.length) toast("No rows found in those files");
+}
+function renderSyncPanels(){
+  const ip = $("importPanel");
+  let h = "";
+  const of = syncFiles.find(f=>f.kind==="opps");
+  if(of){
+    const H = re => of.headers.find(x=>re.test(x));
+    const stC = H(/status reason/i), aC = H(/account name/i), tC = H(/^topic$/i);
+    const st = r => mapCrmStatus(r[stC]);
+    const active = of.rows.filter(r=>st(r)!=="Won" && st(r)!=="Lost – Budget");
+    const won = of.rows.filter(r=>st(r)==="Won");
+    const bud = of.rows.filter(r=>st(r)==="Lost – Budget");
+    window.__oppFile = {file:of, active};
+    h += `<div class="sync-group"><h3 style="color:var(--go)">Opportunities — export of ${of.filedate? esc(fmtD(of.filedate)+" "+of.filedate.slice(0,4)) : esc(of.name)} <span class="cnt">${of.rows.length} rows</span></h3>
+      <button class="btn btn-go" style="margin:8px 0" onclick="importOpps2()">Import / update ${active.length} active opportunities</button>
+      <span id="impProg" class="k" style="margin-left:10px"></span>
+      <details class="more"><summary>Archived — not imported: ${won.length} Won · ${bud.length} Budget-lost</summary>
+        ${[...won.slice(0,40),...bud.slice(0,40)].map(r=>`<div class="sync-item"><span class="grow"><b>${esc(r[aC]||"")}</b> <span class="k">${esc(r[tC]||"")}</span></span><span class="k">${esc(st(r)||"")}</span></div>`).join("")}
+        ${won.length+bud.length>80?`<div class="k" style="padding:6px">…list truncated (${won.length+bud.length} total)</div>`:""}
+      </details></div>`;
+  }
+  const lf = syncFiles.find(f=>f.kind==="leads");
+  if(lf){
+    const H = re => lf.headers.find(x=>re.test(x));
+    const stC = H(/status reason/i), acC = H(/^account$/i), tpC = H(/^topic$/i), prC = H(/products of interest/i),
+          ctC = H(/primary contact/i), phC = H(/main phone/i), srC = H(/^lead source$/i), rtC = H(/^rating$/i), crC = H(/^created on$/i);
+    const byStatus = x => lf.rows.filter(r=>String(r[stC]||"").trim().toLowerCase()===x);
+    const news = byStatus("new"), qual = byStatus("qualified");
+    const rest = lf.rows.length - news.length - qual.length;
+    const onBoard = new Set(rows.map(r=>nameKey(r.company)));
+    window.__leadsNew = news.map(r=>({
+      company: String(r[acC]||"").trim(), topic: r[tpC]||"", product: String(r[prC]||"").trim(),
+      contact: r[ctC]||"", phone: r[phC]||"", source: r[srC]||"", rating: r[rtC]||"",
+      exists: onBoard.has(nameKey(r[acC]||""))
+    })).filter(m=>m.company);
+    const addable = window.__leadsNew.filter(x=>!x.exists).length;
+    h += `<div class="sync-group" style="margin-top:${of?"22px":"0"}"><h3 style="color:var(--blue)">Leads — export of ${lf.filedate? esc(fmtD(lf.filedate)+" "+lf.filedate.slice(0,4)) : esc(lf.name)} <span class="cnt">${lf.rows.length} rows</span></h3>
+      <p style="font-size:13px;color:var(--muted);margin:4px 0 8px">Only <b>New</b> leads import. Qualified are archived below; ${rest} dead-status rows (cancelled / lost / can't contact / not interested) ignored.</p>
+      ${addable? `<button class="btn btn-go" style="margin-bottom:8px" onclick="addAllNewLeads()">+ Add all ${addable} new leads</button>`:""}
+      ${window.__leadsNew.map((m,i)=>`<div class="sync-item"><span class="grow"><b>${esc(m.company)}</b> <span class="k">${esc(m.topic||m.product)}</span>${m.contact?` <span class="k">${esc(m.contact)}</span>`:""}</span>
+        ${m.exists? `<span class="badge b-grey">already on board</span>` : `<button class="btn" onclick="addLeadFromSync(${i})">+ Add</button>`}</div>`).join("") || `<div class="empty">No leads with status New in this export.</div>`}
+      <details class="more"><summary>Archived — Qualified: ${qual.length}</summary>
+        ${qual.slice(0,60).map(r=>`<div class="sync-item"><span class="grow"><b>${esc(r[acC]||"")}</b> <span class="k">${esc(r[tpC]||r[prC]||"")}</span></span><span class="k">${esc(String(r[crC]||"").slice(0,10))}</span></div>`).join("")}
+        ${qual.length>60?`<div class="k" style="padding:6px">…and ${qual.length-60} more</div>`:""}
+      </details></div>`;
+  }
+  ip.innerHTML = h;
+  ip.classList.toggle("hidden", !h);
+}
+async function importOpps2(){
+  const pack = window.__oppFile; if(!pack) return;
+  const of = pack.file;
+  const H = re => of.headers.find(x=>re.test(x));
+  const gC = H(/^\(do not modify\) opportunity$/i), aC = H(/account name/i), tC = H(/^topic$/i), mC = H(/modified on/i),
+        pC = H(/^product$/i), sC = H(/probability/i), stC = H(/status reason/i),
+        rC = H(/est\.? revenue/i), cC2 = H(/est\.? close/i), crC = H(/^created on$/i), lC = H(/lead source/i);
+  if(!gC || !aC){ toast("Missing GUID / Account Name columns"); return; }
+  const prog = $("impProg");
+  const recs = [], accMap = new Map();
+  pack.active.forEach(r=>{
+    const id = String(r[gC]||"").trim(); if(!id) return;
+    const account = String(r[aC]||"").replace(/­/g,"").trim(); if(!account) return;
+    const key = nameKey(account);
+    if(!accMap.has(key)) accMap.set(key, account);
+    recs.push({
+      crm_id: id, account, account_key: key,
+      topic: tC? (String(r[tC]).trim()||null):null,
+      product: pC? (String(r[pC]).trim()||null):null,
+      crm_stage: sC? (String(r[sC]).trim()||null):null,
+      status: stC? mapCrmStatus(r[stC]):null,
+      est_revenue: rC && r[rC]!=="" ? (Number(r[rC])||null):null,
+      est_close: cC2 && r[cC2]? String(r[cC2]).slice(0,10):null,
+      crm_created: crC && r[crC]? String(r[crC]):null,
+      modified_on: mC && r[mC]? String(r[mC]):null,
+      lead_source: lC? (String(r[lC]).trim()||null):null,
+      imported_at: new Date().toISOString()
+    });
+  });
+  if(!recs.length){ toast("No active opportunity rows"); return; }
+  prog.textContent = "importing…";
+  const newAcc = [...accMap].filter(([k])=>!accountsByKey.has(k)).map(([k,n])=>({ name:n, name_key:k }));
+  if(newAcc.length){
+    const { error } = await sb.from("accounts").upsert(newAcc, { onConflict:"name_key", ignoreDuplicates:true });
+    if(error){ toast("Account save failed: "+error.message); prog.textContent=""; return; }
+  }
+  for(let i=0;i<recs.length;i+=200){
+    const { error } = await sb.from("crm_opps").upsert(recs.slice(i,i+200), { onConflict:"crm_id" });
+    if(error){ toast("Import failed at row "+i+": "+error.message); prog.textContent=""; return; }
+    prog.textContent = `imported ${Math.min(i+200,recs.length)} / ${recs.length}`;
+  }
+  // silently tick CRM presence on matching working-list records
+  const crmKeys = new Set(of.rows.map(r=>nameKey(String(r[aC]||""))));
+  let marked = 0;
+  for(const r of rows){
+    if(r.crm_status!=="in_crm" && crmKeys.has(nameKey(r.company))){
+      if(await dbUpdate(r.id, {crm_status:"in_crm", crm_last_sync:new Date().toISOString()})) marked++;
+    }
+  }
+  const [a,o] = await Promise.all([fetchAll("accounts","created_at"), fetchAll("crm_opps","crm_created")]);
+  accounts = a; crmOpps = o; accountsByKey = new Map(accounts.map(x=>[x.name_key,x]));
+  prog.textContent = "";
+  toast(`${recs.length} active opportunities imported · ${marked} records ticked ✔ in CRM`);
+  renderAll();
+}
+async function addLeadFromSync(i){
+  const m = window.__leadsNew[i]; if(!m || m.exists) return;
+  const d = await dbInsert({
+    company: m.company, contact_name: m.contact||null,
+    product: PRODUCTS.includes(m.product)? m.product : null,
+    lead_source: SOURCES.includes(m.source)? m.source : null,
+    stage:"New", waiting_on:"Me", budget_confirmed:"Unknown",
+    next_step:"Review & first response", last_touch:new Date().toISOString(),
+    notes: [m.topic, !PRODUCTS.includes(m.product)&&m.product? m.product:null, m.rating? "Rating: "+m.rating:null, m.phone? "☎ "+m.phone:null].filter(Boolean).join(" · ")||null,
+    crm_status:"in_crm", crm_last_sync:new Date().toISOString()
+  });
+  if(d){ m.exists = true; await ensureAccount(m.company); toast(m.company+" added — your move"); renderSyncPanels(); renderAll(); }
+}
+async function addAllNewLeads(){
+  let n = 0;
+  for(let i=0;i<window.__leadsNew.length;i++){
+    if(!window.__leadsNew[i].exists){ await addLeadFromSync(i); n++; }
+  }
+  toast(n+" new leads added");
 }
 function runMatch(){
   const cE=$("mapEmail").value, cC=$("mapCompany").value, cW=$("mapWebsite").value, cT=$("mapTopic").value;
@@ -1925,6 +2076,58 @@ async function rnToLead(crmId){
     last_touch: new Date().toISOString()
   });
   if(d) toast(`${o.account} renewal lead on your board — follow up ${fmtD(addDays(renew,-21))}`);
+}
+
+/* ================= 2026 CLOSE TARGETS ================= */
+function renderDashClose(in2026){
+  if(!$("dashClose")) return;
+  const t = todayStr(), Y = "2026";
+  const val = o => Number(o.est_revenue)||0;
+  const wgt = o => val(o) * Math.max(parseInt(o.crm_stage)||5,1)/100;
+  const open = crmOpps.filter(isOpenStatus);
+  const mm = t.slice(0,7);
+  const qi = Math.floor((Number(t.slice(5,7))-1)/3);
+  const qMonths = [1,2,3].map(k=>Y+"-"+String(qi*3+k).padStart(2,"0"));
+  const bucket = f => { const l = open.filter(f); return {n:l.length, v:l.reduce((s,o)=>s+val(o),0), w:l.reduce((s,o)=>s+wgt(o),0)}; };
+  const bMonth = bucket(o=>String(o.est_close||"").startsWith(mm));
+  const bQ     = bucket(o=>qMonths.includes(String(o.est_close||"").slice(0,7)));
+  const bYear  = bucket(o=>o.est_close && o.est_close>=t && String(o.est_close).startsWith(Y));
+  const bOver  = bucket(o=>o.est_close && o.est_close<t);
+  const wonY   = crmOpps.filter(o=>o.status==="Won" && String(o.est_close||"").startsWith(Y));
+  const wonV   = wonY.reduce((s,o)=>s+val(o),0);
+  const MO = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const card = (label,b,color) => `<div class="kpi" style="border-top:3px solid ${color}"><div class="v">${fmtAED(Math.round(b.v))}</div>
+    <div class="l">${label}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${b.n} deals · weighted ${fmtAED(Math.round(b.w))}</div></div>`;
+  $("dashClose").innerHTML =
+    card("to close — "+MO[Number(t.slice(5,7))]+" "+Y, bMonth, "var(--red)") +
+    card("this quarter (Q"+(qi+1)+")", bQ, "var(--amber)") +
+    card("rest of "+Y, bYear, "var(--blue)") +
+    card("overdue — still open", bOver, "var(--red)") +
+    `<div class="kpi" style="border-top:3px solid var(--go)"><div class="v">${fmtAED(Math.round(wonV))}</div><div class="l">won in ${Y}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${wonY.length} deals</div></div>`;
+  // month-by-month stacked bars
+  const won = {}, opn = {};
+  crmOpps.forEach(o=>{
+    const ec = String(o.est_close||"");
+    if(!ec.startsWith(Y)) return;
+    const m = Number(ec.slice(5,7));
+    if(o.status==="Won") won[m]=(won[m]||0)+val(o);
+    else if(isOpenStatus(o)) opn[m]=(opn[m]||0)+val(o);
+  });
+  const max = Math.max(...Array.from({length:12},(_,i)=>(won[i+1]||0)+(opn[i+1]||0)), 1);
+  const cm = Number(t.slice(5,7));
+  $("dashMonths").innerHTML = Array.from({length:12},(_,i)=>{
+    const m=i+1, w=won[m]||0, o=opn[m]||0;
+    const txt = [w?fmtAED(w)+" won":"", o?fmtAED(o)+" open":""].filter(Boolean).join(" · ")||"—";
+    return `<div class="bar-row"><span class="bar-l" style="flex-basis:56px;${m===cm?"font-weight:700":""}">${MO[m]}${m===cm?" ●":""}</span>
+      <span class="bar-track" style="display:flex">
+        <span style="width:${Math.round(100*w/max)}%;background:var(--go);height:100%"></span>
+        <span style="width:${Math.round(100*o/max)}%;background:var(--blue);height:100%"></span>
+      </span><span class="bar-v">${txt}</span></div>`;
+  }).join("");
+  const pre = crmOpps.filter(o=>!in2026(o));
+  const preWon = pre.filter(o=>o.status==="Won").reduce((s,o)=>s+val(o),0);
+  const preLost = pre.filter(o=>(o.status||"").startsWith("Lost")).reduce((s,o)=>s+val(o),0);
+  $("dashPre").textContent = `Before 2026 (lumpsum, excluded from everything above): ${pre.length} opportunities · ${fmtAED(preWon)} won · ${fmtAED(preLost)} lost`;
 }
 </script>
 </body>
