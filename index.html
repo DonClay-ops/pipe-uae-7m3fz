@@ -132,6 +132,13 @@ details.more .grid2{margin-top:12px}
 .sync-item .k{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
 .sync-item .grow{flex:1}
 
+/* ---------- compact pipeline ---------- */
+.compact-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-bottom:14px}
+.cg-cell{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--muted);border-radius:6px;padding:5px 8px;font-size:11.5px;line-height:1.35;cursor:pointer;overflow:hidden}
+.cg-cell:hover{border-color:var(--muted)}
+.cg-cell b{font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cg-cell .cg-t{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.cg-early{border-left-color:var(--blue)}.cg-mid{border-left-color:var(--amber)}.cg-late{border-left-color:var(--go)}
 /* ---------- inbox / do-now ---------- */
 .donow{background:var(--surface);border:2px solid var(--ink);border-radius:var(--radius);padding:12px 14px;margin-bottom:18px}
 .donow h2{font-size:19px;text-transform:uppercase;margin-bottom:8px}
@@ -266,10 +273,16 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
         <span style="font-size:12.5px;color:var(--muted)">Everything below is your CRM opportunity history — refresh it via Weekly sync.</span>
       </div>
     </div>
+    <div class="panel"><h2>2026 scoreboard — target $1.2M</h2>
+      <div id="dashScore"></div>
+      <details class="more"><summary>Edit targets & actuals (USD, saved permanently)</summary>
+        <div class="task-add" style="margin-top:10px" id="scoreInputs"></div>
+      </details>
+    </div>
     <div class="kpi-grid" id="dashClose"></div>
     <div class="panel"><h2>2026 month by month — won vs open (by est. close)</h2>
       <div id="dashMonths"></div>
-      <p style="font-size:12px;color:var(--muted);margin-top:6px"><span style="display:inline-block;width:10px;height:10px;background:var(--go);border-radius:2px"></span> won &nbsp; <span style="display:inline-block;width:10px;height:10px;background:var(--blue);border-radius:2px"></span> open pipeline &nbsp;·&nbsp; open value sitting in past months = slipped deals, fix their close dates</p>
+      <p style="font-size:12px;color:var(--muted);margin-top:6px"><span style="display:inline-block;width:10px;height:10px;background:var(--go);border-radius:2px"></span> won &nbsp; <span style="display:inline-block;width:10px;height:10px;background:var(--blue);border-radius:2px"></span> open pipeline &nbsp; <span style="display:inline-block;width:10px;height:10px;background:var(--amber);border-radius:2px"></span> forecasted renewals (80%) &nbsp;·&nbsp; open value sitting in past months = slipped deals, fix their close dates</p>
       <p class="totals" id="dashPre"></p>
     </div>
     <div class="kpi-grid" id="dashKpis"></div>
@@ -285,6 +298,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 
   <div id="view-pipeline" class="hidden">
     <div class="filters" id="pipeFilters"></div>
+    <div id="pipeCompact"></div>
     <div class="tbl-wrap"><table id="pipeTable"></table></div>
     <p class="totals" id="pipeTotals"></p>
   </div>
@@ -295,7 +309,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
       <div class="task-add">
         <input id="qCompany" type="text" list="companyList" placeholder="Company…" style="flex:1;min-width:140px">
         <input id="qDesc" type="text" placeholder="What (e.g. BC licenses ×10)" style="flex:2;min-width:160px">
-        <input id="qValue" type="number" min="0" step="500" placeholder="AED" style="flex:0 0 110px">
+        <input id="qValue" type="number" min="0" step="500" placeholder="USD" style="flex:0 0 110px">
         <input id="qSent" type="date" style="flex:0 0 140px" title="Sent on">
         <label style="display:flex;align-items:center;gap:5px;margin:0;text-transform:none;font-size:13px;font-weight:500;flex:0 0 auto;color:var(--ink)"><input type="checkbox" id="qLic" style="width:auto">license</label>
         <input id="qRenew" type="date" style="flex:0 0 140px" title="Renewal date" disabled>
@@ -369,7 +383,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
         <div class="grid2">
           <div class="field"><label for="aContact">Contact name</label><input id="aContact" type="text"></div>
           <div class="field"><label for="aSource">Lead source</label><select id="aSource"></select></div>
-          <div class="field"><label for="aValue">Est. value (AED)</label><input id="aValue" type="number" min="0" step="1000"></div>
+          <div class="field"><label for="aValue">Est. value (USD)</label><input id="aValue" type="number" min="0" step="1000"></div>
           <div class="field"><label for="aClose">Est. close date</label><input id="aClose" type="date"></div>
           <div class="field"><label for="aCampaign">Campaign</label><select id="aCampaign"></select></div>
           <div class="field"><label for="aNextDue">First follow-up due</label><input id="aNextDue" type="date"></div>
@@ -425,7 +439,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <div class="field"><label for="eStage">Stage</label><select id="eStage"></select></div>
     <div class="field"><label for="eBudget">Budget confirmed</label><select id="eBudget"></select></div>
     <div class="field"><label for="eWaiting">Whose move</label><select id="eWaiting"></select></div>
-    <div class="field"><label for="eValue">Est. value (AED)</label><input id="eValue" type="number" min="0" step="1000"></div>
+    <div class="field"><label for="eValue">Est. value (USD)</label><input id="eValue" type="number" min="0" step="1000"></div>
     <div class="field"><label for="eClose">Est. close date</label><input id="eClose" type="date"></div>
     <div class="field"><label for="eNextDue">Next step due</label><input id="eNextDue" type="date"></div>
     <div class="field"><label for="eSource">Lead source</label><select id="eSource"></select></div>
@@ -517,7 +531,14 @@ let tasksRows = [], accounts = [], crmOpps = [], accountsByKey = new Map(), tlKe
 let todayFilter = "all", pipeSource = "crm", crmFilter = "open", dashFilter = "open";
 let inboxRows = [], ibFilter = "open";
 let quotes = [], qFilter = "open", commitments = [], cFilter = "chase";
-let tgMode = "gaps", rnWindow = 90;
+let tgMode = "gaps", rnWindow = 90, settings = new Map();
+const RENEWAL_PROB = 0.8;
+const getSetting = (k,d) => settings.has(k)? Number(settings.get(k)) : d;
+async function saveSetting(k,v){
+  const { error } = await sb.from("settings").upsert({ key:k, value:v, updated_at:new Date().toISOString() }, { onConflict:"key" });
+  if(error){ toast(error.code==="42P01"? "Run migrate_v8_to_v9.sql first":"Save failed: "+error.message); return false; }
+  settings.set(k, v); return true;
+}
 const QUOTE_FLOW = ["Sent","Chasing","PO received","Payment pending","Paid"];
 const QUOTE_BADGE = {"Sent":"b-grey","Chasing":"b-amber","PO received":"b-blue","Payment pending":"b-red","Paid":"b-money","Lost":"b-red"};
 const ORG_TYPES = ["Client","Consultant","PM","Finance","Vendor","Microsoft","Other"];
@@ -525,7 +546,7 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v11.0";
+const APP_VERSION = "v12.0";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -544,7 +565,7 @@ const crmStatusMatch = (o,f) => f==="all" ? true
 const $ = id => document.getElementById(id);
 const esc = s => (s==null?"":String(s)).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const todayStr = () => new Date().toISOString().slice(0,10);
-const fmtAED = n => n==null||n===""?"—":"AED "+Number(n).toLocaleString("en-US",{maximumFractionDigits:0});
+const fmtAED = n => n==null||n===""?"—":"$"+Number(n).toLocaleString("en-US",{maximumFractionDigits:0});
 const fmtD = d => d? new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}) : "—";
 const daysSince = ts => ts? Math.floor((Date.now()-new Date(ts).getTime())/86400000) : null;
 const hoursSince = ts => ts? (Date.now()-new Date(ts).getTime())/3600000 : null;
@@ -633,13 +654,14 @@ async function fetchAll(table, orderCol){
   return out;
 }
 async function loadRows(){
-  const [p,t,a,o,ib,q,cm] = await Promise.all([
+  const [p,t,a,o,ib,q,cm,st] = await Promise.all([
     fetchAll("pipeline","created_at"), fetchAll("tasks","created_at"),
     fetchAll("accounts","created_at"), fetchAll("crm_opps","crm_created"),
     fetchAll("inbox","captured_at"), fetchAll("quotes","created_at"),
-    fetchAll("commitments","created_at")
+    fetchAll("commitments","created_at"), fetchAll("settings","key")
   ]);
   rows = p; tasksRows = t; accounts = a; crmOpps = o; inboxRows = ib; quotes = q; commitments = cm;
+  settings = new Map((st||[]).map(x=>[x.key, x.value]));
   accountsByKey = new Map(accounts.map(x=>[x.name_key, x]));
   renderAll();
 }
@@ -670,7 +692,7 @@ function renderHeader(){
   const mine = rows.filter(r=>isOpen(r) && r.waiting_on==="Me").length;
   const val = rows.filter(r=>STAGE_PROB[r.stage]!=null).reduce((s,r)=>s+(Number(r.est_value_aed)||0),0);
   $("chipMove").innerHTML = `my move <b>${mine}</b>`;
-  $("chipValue").innerHTML = `open <b>${val?("AED "+Math.round(val/1000)+"k"):"—"}</b>`;
+  $("chipValue").innerHTML = `open <b>${val?("$"+Math.round(val/1000)+"k"):"—"}</b>`;
   const urgent = rows.filter(r=>isOpen(r)&&r.waiting_on==="Me").map(urgency).filter(u=>u&&u.score<=2).length;
   $("todayCount").textContent = urgent? urgent : "";
 }
@@ -808,6 +830,7 @@ function renderPipeline(){
     .map(([k,l])=>`<button class="btn ${pipeSource===k?"on":""}" style="${pipeSource===k?"":"opacity:.75"}" onclick="pipeSource='${k}';renderPipeline()">${l}</button>`).join("");
   if(pipeSource==="crm"){ renderPipelineCrm(srcBtns); return; }
   $("pipeFilters").innerHTML = srcBtns + `<span style="flex-basis:100%;height:0"></span>` + FILTERS.map(([k,l])=>`<button class="btn ${pipeFilter===k?"on":""}" onclick="pipeFilter='${k}';renderPipeline()">${l}</button>`).join("");
+  $("pipeCompact").innerHTML = "";
   const list = pipeRows();
   const byStage = {};
   const projMode = pipeFilter==="projects" || pipeFilter==="licenses";
@@ -842,6 +865,13 @@ function renderPipelineCrm(srcBtns){
   $("pipeFilters").innerHTML = srcBtns + `<span style="flex-basis:100%;height:0"></span>`
     + CRM_FILTERS.map(([k,l])=>`<button class="btn ${crmFilter===k?"on":""}" onclick="crmFilter='${k}';renderPipeline()">${l}</button>`).join("");
   const list = crmOpps.filter(o=>crmStatusMatch(o,crmFilter));
+  const cg = $("pipeCompact");
+  if((crmFilter==="open"||crmFilter==="stale") && list.length){
+    const cls = o => { const n = parseInt(o.crm_stage)||0; return n>=70? "cg-late" : n>=50? "cg-mid" : "cg-early"; };
+    cg.innerHTML = `<div class="compact-grid">` + list.slice().sort((a,b)=>(parseInt(b.crm_stage)||0)-(parseInt(a.crm_stage)||0))
+      .map(o=>`<div class="cg-cell ${cls(o)}" title="${esc((o.crm_stage||"")+" · "+fmtAED(o.est_revenue)+(o.est_close?" · close "+fmtD(o.est_close):""))}" onclick="openTimeline('${String(o.account_key||"").replace(/'/g,"\\'")}')">
+        <b>${esc(o.account||"—")}</b><span class="cg-t">${esc(o.topic||o.product||"")}</span></div>`).join("") + `</div>`;
+  } else cg.innerHTML = "";
   const by = {};
   list.forEach(o=>{ const st = o.crm_stage||"(no stage)"; (by[st]=by[st]||[]).push(o); });
   const stages = [...CRM_STAGE_ORDER.filter(st=>by[st]), ...Object.keys(by).filter(st=>!CRM_STAGE_ORDER.includes(st)).sort()];
@@ -879,7 +909,7 @@ function renderDash(){
   const Y = "2026";
   const in2026 = o => String(o.est_close||"").startsWith(Y) || String(o.crm_created||"").startsWith(Y);
   let list = crmOpps.filter(o=>crmStatusMatch(o,dashFilter)).filter(in2026);
-  renderDashClose(in2026);
+  renderScoreboard(); renderDashClose(in2026);
   const prev = $("dashProduct").value || "All products";
   const prods = new Set(["All products"]); list.forEach(o=>{ if(o.product) prods.add(o.product); });
   $("dashProduct").innerHTML = [...prods].sort((a,b)=>a==="All products"?-1:b==="All products"?1:a.localeCompare(b)).map(x=>`<option ${x===prev?"selected":""}>${esc(x)}</option>`).join("");
@@ -1850,13 +1880,15 @@ function renderQuotes(){
   const counts = {
     open: quotes.filter(isOpenQuote).length,
     renewals: quotes.filter(q=>q.is_license && q.renewal_date).length,
+    m365: crmOpps.filter(o=>/m ?365/i.test(o.product||"")).length,
     paid: quotes.filter(q=>q.status==="Paid").length,
     lost: quotes.filter(q=>q.status==="Lost").length,
     all: quotes.length
   };
-  $("qFilters").innerHTML = [["open","Open"],["renewals","Renewals ↻"],["paid","Paid"],["lost","Lost"],["all","All"]]
+  $("qFilters").innerHTML = [["open","Open"],["renewals","Renewals ↻"],["m365","M365 by year"],["paid","Paid"],["lost","Lost"],["all","All"]]
     .map(([k,l])=>`<button class="btn ${qFilter===k?"on":""}" onclick="qFilter='${k}';renderQuotes()">${l} (${counts[k]})</button>`).join("");
   let list, note = "";
+  if(qFilter==="m365"){ renderM365Years(); return; }
   if(qFilter==="renewals"){
     list = quotes.filter(q=>q.is_license && q.renewal_date).sort((a,b)=>a.renewal_date<b.renewal_date?-1:1);
     note = `<p style="font-size:12.5px;color:var(--muted);margin:4px 0 10px">Sorted by renewal date — amber inside 60 days, red inside 30. <b>→ Lead</b> puts next year's renewal on your board.</p>`;
@@ -2042,6 +2074,7 @@ function renderRenewals(){
       <td>${badge}</td>
       <td class="mono">${fmtAED(x.o.est_revenue)}</td>
       <td onclick="event.stopPropagation()" style="white-space:nowrap"><button class="btn btn-go" style="padding:4px 12px" onclick="rnToLead('${esc(x.o.crm_id)}')">→ Lead</button>
+        ${fcEligible(x.o)? `<button class="btn ${x.o.forecast?"":"btn-ghost"}" style="padding:4px 10px;${x.o.forecast?"background:var(--amber-bg);border-color:var(--amber);color:var(--amber)":""}" onclick="rnForecast('${esc(x.o.crm_id)}')">${x.o.forecast?"Forecasted ✓":"Forecast ↗"}</button>`:""}
         <button class="btn btn-ghost" style="padding:4px 10px;color:var(--muted)" title="Skip this cycle — push to next year" onclick="rnIgnore('${esc(x.o.crm_id)}')">Ignore ↷</button></td></tr>`;
   });
   $("tgTable").innerHTML = h;
@@ -2083,8 +2116,9 @@ function renderDashClose(in2026){
   if(!$("dashClose")) return;
   const t = todayStr(), Y = "2026";
   const val = o => Number(o.est_revenue)||0;
-  const wgt = o => val(o) * Math.max(parseInt(o.crm_stage)||5,1)/100;
-  const open = crmOpps.filter(isOpenStatus);
+  const wgt = o => o.__fc? val(o)*RENEWAL_PROB : val(o) * Math.max(parseInt(o.crm_stage)||5,1)/100;
+  const fc = crmOpps.filter(o=>o.forecast).map(o=>Object.assign({}, o, { est_close: o.renewal_date || nextAnniversary(o.crm_created), __fc:true }));
+  const open = crmOpps.filter(isOpenStatus).concat(fc);
   const mm = t.slice(0,7);
   const qi = Math.floor((Number(t.slice(5,7))-1)/3);
   const qMonths = [1,2,3].map(k=>Y+"-"+String(qi*3+k).padStart(2,"0"));
@@ -2110,24 +2144,113 @@ function renderDashClose(in2026){
     const ec = String(o.est_close||"");
     if(!ec.startsWith(Y)) return;
     const m = Number(ec.slice(5,7));
+    if(o.__fc || o.forecast) return;
     if(o.status==="Won") won[m]=(won[m]||0)+val(o);
     else if(isOpenStatus(o)) opn[m]=(opn[m]||0)+val(o);
   });
-  const max = Math.max(...Array.from({length:12},(_,i)=>(won[i+1]||0)+(opn[i+1]||0)), 1);
+  const fcm = {};
+  fc.forEach(o=>{ const ec=String(o.est_close||""); if(ec.startsWith(Y)) fcm[Number(ec.slice(5,7))]=(fcm[Number(ec.slice(5,7))]||0)+val(o); });
+  const max = Math.max(...Array.from({length:12},(_,i)=>(won[i+1]||0)+(opn[i+1]||0)+(fcm[i+1]||0)), 1);
   const cm = Number(t.slice(5,7));
   $("dashMonths").innerHTML = Array.from({length:12},(_,i)=>{
-    const m=i+1, w=won[m]||0, o=opn[m]||0;
-    const txt = [w?fmtAED(w)+" won":"", o?fmtAED(o)+" open":""].filter(Boolean).join(" · ")||"—";
+    const m=i+1, w=won[m]||0, o=opn[m]||0, f=fcm[m]||0;
+    const txt = [w?fmtAED(w)+" won":"", o?fmtAED(o)+" open":"", f?fmtAED(f)+" renewals":""].filter(Boolean).join(" · ")||"—";
     return `<div class="bar-row"><span class="bar-l" style="flex-basis:56px;${m===cm?"font-weight:700":""}">${MO[m]}${m===cm?" ●":""}</span>
       <span class="bar-track" style="display:flex">
         <span style="width:${Math.round(100*w/max)}%;background:var(--go);height:100%"></span>
         <span style="width:${Math.round(100*o/max)}%;background:var(--blue);height:100%"></span>
+        <span style="width:${Math.round(100*f/max)}%;background:var(--amber);height:100%"></span>
       </span><span class="bar-v">${txt}</span></div>`;
   }).join("");
   const pre = crmOpps.filter(o=>!in2026(o));
   const preWon = pre.filter(o=>o.status==="Won").reduce((s,o)=>s+val(o),0);
   const preLost = pre.filter(o=>(o.status||"").startsWith("Lost")).reduce((s,o)=>s+val(o),0);
   $("dashPre").textContent = `Before 2026 (lumpsum, excluded from everything above): ${pre.length} opportunities · ${fmtAED(preWon)} won · ${fmtAED(preLost)} lost`;
+}
+
+/* ================= M365 BY YEAR + RENEWAL FORECAST ================= */
+function fcEligible(o){
+  if(o.status!=="Won" || !/m ?365/i.test(o.product||"")) return false;
+  if(!String(o.est_close||o.crm_created||"").startsWith("2025")) return false;
+  const renew = o.renewal_date || nextAnniversary(o.crm_created);
+  return renew && renew >= todayStr();
+}
+async function rnForecast(crmId){
+  const o = crmOpps.find(x=>x.crm_id===crmId); if(!o) return;
+  const nv = !o.forecast;
+  const { error } = await sb.from("crm_opps").update({ forecast: nv }).eq("crm_id", crmId);
+  if(error){ toast(error.code==="42703"? "Run migrate_v8_to_v9.sql first":"Save failed: "+error.message); return; }
+  o.forecast = nv;
+  toast(`${o.account} ${nv? "added to forecast ↗":"removed from forecast"}`);
+  renderAll();
+}
+function renderM365Years(){
+  const t = todayStr(), Y = t.slice(0,4);
+  const list = crmOpps.filter(o=>/m ?365/i.test(o.product||""));
+  const yearOf = o => String(o.est_close||o.crm_created||"").slice(0,4) || "?";
+  const by = {};
+  list.forEach(o=>{ (by[yearOf(o)] = by[yearOf(o)]||[]).push(o); });
+  const years = Object.keys(by).sort().reverse();
+  let h = `<p style="font-size:12.5px;color:var(--muted);margin:4px 0 10px">All ${list.length} M365 deals from your CRM, by year. Rows with an ↻ badge renew within ${Y} — mark won 2025 deals <b>Forecast ↗</b> to count them in your dashboard pipeline.</p>`;
+  years.forEach(y=>{
+    const grp = by[y].slice().sort((a,b)=>(Number(b.est_revenue)||0)-(Number(a.est_revenue)||0));
+    const gv = grp.reduce((s,o)=>s+(Number(o.est_revenue)||0),0);
+    const wonN = grp.filter(o=>o.status==="Won").length;
+    h += `<div class="lane"><div class="lane-h"><h2>${esc(y)}</h2><span class="cnt">${grp.length} deals · ${wonN} won · ${fmtAED(gv)}</span></div>`;
+    h += grp.map(o=>{
+      const renew = o.renewal_date || nextAnniversary(o.crm_created);
+      const d = renew? Math.round((new Date(renew)-new Date(t))/86400000) : null;
+      const upcoming = renew && renew.startsWith(Y) && d!=null && d>=0;
+      const stB = o.status==="Won"? "b-money" : (o.status||"").startsWith("Lost")? "b-red" : "b-blue";
+      const co = accountsByKey.has(o.account_key);
+      return `<div class="task-item">
+        ${co? `<span class="t-co" onclick="openTimeline('${String(o.account_key).replace(/'/g,"\\'")}')">${esc(o.account)}</span>` : `<b>${esc(o.account)}</b>`}
+        <span class="t-title" style="font-size:12.5px;color:var(--muted)">${esc(o.topic||"")}</span>
+        <span class="badge ${stB}">${esc(o.status||"?")}</span>
+        <span class="mono" style="font-size:12px">${fmtAED(o.est_revenue)}</span>
+        ${upcoming? `<span class="badge ${d<=30?"b-red":(d<=90?"b-amber":"b-grey")}">↻ ${fmtD(renew)} · ${d}d</span>`:""}
+        ${fcEligible(o)? `<button class="btn ${o.forecast?"":"btn-ghost"}" style="padding:3px 10px;font-size:12.5px;${o.forecast?"background:var(--amber-bg);border-color:var(--amber);color:var(--amber)":""}" onclick="rnForecast('${esc(o.crm_id)}')">${o.forecast?"Forecasted ✓":"Forecast ↗"}</button>`:""}
+        ${upcoming? `<button class="btn" style="padding:3px 10px;font-size:12.5px" onclick="rnToLead('${esc(o.crm_id)}')">→ Lead</button>`:""}
+      </div>`;
+    }).join("");
+    h += `</div>`;
+  });
+  $("qList").innerHTML = h || `<div class="empty">No M365 deals found.</div>`;
+}
+
+/* ================= 2026 SCOREBOARD ================= */
+function autoWonQ(q){
+  const months = [1,2,3].map(k=>"2026-"+String((q-1)*3+k).padStart(2,"0"));
+  return crmOpps.filter(o=>o.status==="Won" && months.includes(String(o.est_close||"").slice(0,7)))
+    .reduce((s,o)=>s+(Number(o.est_revenue)||0),0);
+}
+function renderScoreboard(){
+  if(!$("dashScore")) return;
+  const tq = getSetting("target_quarter_2026", 300000);
+  const ty = getSetting("target_year_2026", 1200000);
+  const cq = Math.floor((Number(todayStr().slice(5,7))-1)/3)+1;
+  const actual = q => { const ov = settings.get("actual_q"+q+"_2026"); return (ov!=null && ov!=="")? Number(ov) : autoWonQ(q); };
+  const closed = [1,2,3,4].map(actual);
+  const ytd = closed.slice(0,cq).reduce((a,b)=>a+b,0);
+  const pct = Math.min(100, Math.round(100*ytd/ty));
+  let h = `<div class="kpi-grid" style="margin-bottom:10px">`;
+  [1,2,3,4].forEach(q=>{
+    const v = closed[q-1], p = Math.round(100*v/tq);
+    const state = q<cq? (v>=tq?"var(--go)":"var(--red)") : q===cq? "var(--amber)" : "var(--line)";
+    const src = settings.get("actual_q"+q+"_2026")!=null? "" : " (from CRM)";
+    h += `<div class="kpi" style="border-top:3px solid ${state}"><div class="v">${fmtAED(Math.round(v))}</div>
+      <div class="l">Q${q} closed${q===cq?" — so far":""}${src}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">${p}% of ${fmtAED(tq)}${q>=cq? " · gap "+fmtAED(Math.max(0,Math.round(tq-v))):""}</div></div>`;
+  });
+  h += `</div>`;
+  h += `<div style="margin:4px 0 2px;font-size:13px"><b>${fmtAED(Math.round(ytd))}</b> closed of ${fmtAED(ty)} — <b>${pct}%</b> · ${fmtAED(Math.max(0,Math.round(ty-ytd)))} to go with ${5-cq} quarter(s) incl. this one</div>
+    <div class="bar-track" style="height:22px"><span class="bar-fill" style="width:${pct}%"></span></div>`;
+  $("dashScore").innerHTML = h;
+  $("scoreInputs").innerHTML = [
+    ["actual_q1_2026","Q1 actual"],["actual_q2_2026","Q2 actual"],["actual_q3_2026","Q3 actual (blank = auto)"],["actual_q4_2026","Q4 actual (blank = auto)"],
+    ["target_quarter_2026","Quarterly target"],["target_year_2026","Yearly target"]
+  ].map(([k,l])=>`<div style="flex:1;min-width:150px"><label style="font-size:10.5px">${l}</label>
+    <input type="number" step="0.01" value="${settings.get(k)!=null? settings.get(k):""}" onchange="saveSetting('${k}', this.value===''? null : Number(this.value)).then(ok=>{if(ok){toast('Saved');renderDash();}})"></div>`).join("");
 }
 </script>
 </body>
