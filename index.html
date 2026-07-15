@@ -535,7 +535,7 @@ let tgMode = "gaps", rnWindow = 90, settings = new Map();
 const RENEWAL_PROB = 0.8;
 const getSetting = (k,d) => settings.has(k)? Number(settings.get(k)) : d;
 async function saveSetting(k,v){
-  const { error } = await sb.from("settings").upsert({ key:k, value:v, updated_at:new Date().toISOString() }, { onConflict:"key" });
+  const { error } = await sb.from("app_settings").upsert({ key:k, value:v, updated_at:new Date().toISOString() }, { onConflict:"key" });
   if(error){ toast(error.code==="42P01"? "Run migrate_v8_to_v9.sql first":"Save failed: "+error.message); return false; }
   settings.set(k, v); return true;
 }
@@ -546,7 +546,7 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v12.0";
+const APP_VERSION = "v12.1";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -658,7 +658,7 @@ async function loadRows(){
     fetchAll("pipeline","created_at"), fetchAll("tasks","created_at"),
     fetchAll("accounts","created_at"), fetchAll("crm_opps","crm_created"),
     fetchAll("inbox","captured_at"), fetchAll("quotes","created_at"),
-    fetchAll("commitments","created_at"), fetchAll("settings","key")
+    fetchAll("commitments","created_at"), fetchAll("app_settings","key")
   ]);
   rows = p; tasksRows = t; accounts = a; crmOpps = o; inboxRows = ib; quotes = q; commitments = cm;
   settings = new Map((st||[]).map(x=>[x.key, x.value]));
