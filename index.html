@@ -518,14 +518,20 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v9.0";
+const APP_VERSION = "v10.0";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
+const isOpenStatus = o => o.status==="In Progress"||o.status==="On Hold";
+const isRecentOpp = o => {
+  const last = String(o.modified_on||"") > String(o.crm_created||"") ? o.modified_on : o.crm_created;
+  return last && String(last).slice(0,10) >= addDays(todayStr(),-90);
+};
 const crmStatusMatch = (o,f) => f==="all" ? true
   : f==="won" ? o.status==="Won"
   : f==="lost" ? (o.status||"").startsWith("Lost")
-  : (o.status==="In Progress"||o.status==="On Hold");
+  : f==="stale" ? (isOpenStatus(o) && !isRecentOpp(o))
+  : (isOpenStatus(o) && isRecentOpp(o));
 
 /* ================= helpers ================= */
 const $ = id => document.getElementById(id);
@@ -737,7 +743,7 @@ function renderToday(){
 }
 function untrackedOpenOpps(){
   const openKeys = new Set(rows.filter(isOpen).map(r=>nameKey(r.company)));
-  return crmOpps.filter(o=>crmStatusMatch(o,"open") && o.account_key && !openKeys.has(o.account_key))
+  return crmOpps.filter(o=>isOpenStatus(o) && isRecentOpp(o) && o.account_key && !openKeys.has(o.account_key))
     .sort((a,b)=>(Number(b.est_revenue)||0)-(Number(a.est_revenue)||0));
 }
 async function trackOpp(crmId){
@@ -823,7 +829,7 @@ function renderPipeline(){
   const weighted = active.reduce((s,r)=>s+(Number(r.est_value_aed)||0)*STAGE_PROB[r.stage]/100,0);
   $("pipeTotals").textContent = `${list.length} records · open value ${fmtAED(total)} · weighted ${fmtAED(Math.round(weighted))}`;
 }
-const CRM_FILTERS = [["open","Open"],["won","Won"],["lost","Lost"],["all","All"]];
+const CRM_FILTERS = [["open","Active (3m)"],["stale","Stale open"],["won","Won"],["lost","Lost"],["all","All"]];
 function renderPipelineCrm(srcBtns){
   $("pipeFilters").innerHTML = srcBtns + `<span style="flex-basis:100%;height:0"></span>`
     + CRM_FILTERS.map(([k,l])=>`<button class="btn ${crmFilter===k?"on":""}" onclick="crmFilter='${k}';renderPipeline()">${l}</button>`).join("");
@@ -831,7 +837,7 @@ function renderPipelineCrm(srcBtns){
   const by = {};
   list.forEach(o=>{ const st = o.crm_stage||"(no stage)"; (by[st]=by[st]||[]).push(o); });
   const stages = [...CRM_STAGE_ORDER.filter(st=>by[st]), ...Object.keys(by).filter(st=>!CRM_STAGE_ORDER.includes(st)).sort()];
-  let h = `<tr><th>Project / account</th><th>Product</th><th>Status</th><th>Value</th><th>Est. close</th><th>Created</th></tr>`;
+  let h = `<tr><th>Project / account</th><th>Product</th><th>Status</th><th>Value</th><th>Est. close</th><th>Last activity</th></tr>`;
   if(!list.length) h += `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No CRM opportunities${crmFilter!=="all"?" in this filter":""} — run migrate_v2_to_v3.sql or import an export via Weekly sync.</td></tr>`;
   stages.forEach(st=>{
     const grp = by[st];
@@ -844,7 +850,7 @@ function renderPipelineCrm(srcBtns){
         <td>${esc(o.status||"—")}</td>
         <td class="mono">${fmtAED(o.est_revenue)}</td>
         <td class="mono">${fmtD(o.est_close)}</td>
-        <td class="mono">${fmtD(o.crm_created)}</td></tr>`;
+        <td class="mono">${fmtD(o.modified_on||o.crm_created)}</td></tr>`;
     });
   });
   $("pipeTable").innerHTML = h;
@@ -1375,7 +1381,7 @@ async function setAccCountry(key, val){
 /* ================= OPPORTUNITY IMPORT ================= */
 async function importOpps(){
   const H = re => syncHeaders.find(h=>re.test(h));
-  const gC = H(/^\(do not modify\) opportunity$/i), aC = H(/account name/i), tC = H(/^topic$/i),
+  const gC = H(/^\(do not modify\) opportunity$/i), aC = H(/account name/i), tC = H(/^topic$/i), mC = H(/modified on/i),
         pC = H(/^product$/i), sC = H(/probability/i), stC = H(/status reason/i),
         rC = H(/est\.? revenue/i), cC2 = H(/est\.? close/i), crC = H(/^created on$/i), lC = H(/lead source/i);
   if(!gC || !aC){ toast("Need the '(Do Not Modify) Opportunity' and 'Account Name' columns"); return; }
@@ -1395,6 +1401,7 @@ async function importOpps(){
       est_revenue: rC && r[rC]!=="" ? (Number(r[rC])||null):null,
       est_close: cC2 && r[cC2]? String(r[cC2]).slice(0,10):null,
       crm_created: crC && r[crC]? String(r[crC]):null,
+      modified_on: mC && r[mC]? String(r[mC]):null,
       lead_source: lC? (String(r[lC]).trim()||null):null,
       imported_at: new Date().toISOString()
     });
@@ -1883,7 +1890,8 @@ function renderRenewals(){
       <td onclick="event.stopPropagation()"><input type="date" value="${x.renew}" style="width:auto;padding:4px 6px;font-size:13px" onchange="rnSetDate('${esc(x.o.crm_id)}', this.value)"></td>
       <td>${badge}</td>
       <td class="mono">${fmtAED(x.o.est_revenue)}</td>
-      <td onclick="event.stopPropagation()"><button class="btn btn-go" style="padding:4px 12px" onclick="rnToLead('${esc(x.o.crm_id)}')">→ Lead</button></td></tr>`;
+      <td onclick="event.stopPropagation()" style="white-space:nowrap"><button class="btn btn-go" style="padding:4px 12px" onclick="rnToLead('${esc(x.o.crm_id)}')">→ Lead</button>
+        <button class="btn btn-ghost" style="padding:4px 10px;color:var(--muted)" title="Skip this cycle — push to next year" onclick="rnIgnore('${esc(x.o.crm_id)}')">Ignore ↷</button></td></tr>`;
   });
   $("tgTable").innerHTML = h;
   $("tgTotals").textContent = `${list.length} M365 renewal account(s) in window · renewal date defaults to the inquiry anniversary — edit it once, it sticks (won AND lost deals included: a lost M365 deal renews with someone, and that's your way back in)`;
@@ -1893,6 +1901,17 @@ async function rnSetDate(crmId, val){
   const { error } = await sb.from("crm_opps").update({ renewal_date: val }).eq("crm_id", crmId);
   if(error){ toast(error.code==="42703"? "Run migrate_v6_to_v7.sql first — renewal_date column missing" : "Save failed: "+error.message); return; }
   o.renewal_date = val; toast(`${o.account} renewal → ${fmtD(val)}`); renderTargets();
+}
+async function rnIgnore(crmId){
+  const o = crmOpps.find(x=>x.crm_id===crmId); if(!o) return;
+  const cur = o.renewal_date || nextAnniversary(o.crm_created);
+  if(!cur) return;
+  const next = (Number(cur.slice(0,4))+1) + cur.slice(4);
+  const { error } = await sb.from("crm_opps").update({ renewal_date: next }).eq("crm_id", crmId);
+  if(error){ toast("Save failed: "+error.message); return; }
+  o.renewal_date = next;
+  toast(`${o.account} — skipped to ${fmtD(next)}`);
+  renderTargets();
 }
 async function rnToLead(crmId){
   const o = crmOpps.find(x=>x.crm_id===crmId); if(!o) return;
