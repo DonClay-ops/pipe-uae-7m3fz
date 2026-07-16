@@ -455,6 +455,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <button class="btn btn-go" style="padding:10px 22px" onclick="saveEdit()">Save</button>
     <button class="btn" onclick="closeDrawer()">Cancel</button>
     <button class="btn" onclick="timelineFromEdit()">Timeline</button>
+    <button class="btn" title="License / one-off deal? Move it to the Quotes tab" onclick="moveRowToQuote(editId)">→ Quote</button>
     <button class="btn btn-ghost btn-danger" style="margin-left:auto" onclick="deleteRecord()">Delete</button>
   </div>
 </div>
@@ -546,7 +547,7 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v12.1";
+const APP_VERSION = "v12.2";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -555,7 +556,8 @@ const isRecentOpp = o => {
   const last = String(o.modified_on||"") > String(o.crm_created||"") ? o.modified_on : o.crm_created;
   return last && String(last).slice(0,10) >= addDays(todayStr(),-90);
 };
-const crmStatusMatch = (o,f) => f==="all" ? true
+const crmStatusMatch = (o,f) => (o.moved_to_quote && f!=="all") ? false
+  : f==="all" ? true
   : f==="won" ? o.status==="Won"
   : f==="lost" ? (o.status||"").startsWith("Lost")
   : f==="stale" ? (isOpenStatus(o) && !isRecentOpp(o))
@@ -875,20 +877,24 @@ function renderPipelineCrm(srcBtns){
   const by = {};
   list.forEach(o=>{ const st = o.crm_stage||"(no stage)"; (by[st]=by[st]||[]).push(o); });
   const stages = [...CRM_STAGE_ORDER.filter(st=>by[st]), ...Object.keys(by).filter(st=>!CRM_STAGE_ORDER.includes(st)).sort()];
-  let h = `<tr><th>Project / account</th><th>Product</th><th>Status</th><th>Value</th><th>Est. close</th><th>Last activity</th></tr>`;
-  if(!list.length) h += `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">No CRM opportunities${crmFilter!=="all"?" in this filter":""} — run migrate_v2_to_v3.sql or import an export via Weekly sync.</td></tr>`;
+  let h = `<tr><th>Project / account</th><th>Product</th><th>Status</th><th>Value</th><th>Est. close</th><th>Last activity</th><th></th></tr>`;
+  if(!list.length) h += `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">No CRM opportunities${crmFilter!=="all"?" in this filter":""} — run migrate_v2_to_v3.sql or import an export via Weekly sync.</td></tr>`;
   stages.forEach(st=>{
     const grp = by[st];
     const gv = grp.reduce((s,o)=>s+(Number(o.est_revenue)||0),0);
-    h += `<tr class="stage-grp"><td colspan="6">${esc(st)} · ${grp.length} · ${fmtAED(gv)}</td></tr>`;
+    h += `<tr class="stage-grp"><td colspan="7">${esc(st)} · ${grp.length} · ${fmtAED(gv)}</td></tr>`;
     grp.slice().sort((a,b)=>(Number(b.est_revenue)||0)-(Number(a.est_revenue)||0)).forEach(o=>{
+      const act = o.moved_to_quote
+        ? `<span class="badge b-money">→ QUOTES</span>`
+        : (isOpenStatus(o)? `<button class="btn" style="padding:4px 10px;white-space:nowrap" title="Move to Quotes — one-off / license deal, no pipeline stages" onclick="event.stopPropagation();moveOppToQuote('${String(o.crm_id).replace(/'/g,"\\'")}')">→ Quote</button>`:"");
       h += `<tr onclick="openTimeline('${String(o.account_key||"").replace(/'/g,"\\'")}')">
         <td><b>${esc(o.topic||"—")}</b><div class="sub">${esc(o.account||"")}</div></td>
         <td>${esc(o.product||"—")}</td>
         <td>${esc(o.status||"—")}</td>
         <td class="mono">${fmtAED(o.est_revenue)}</td>
         <td class="mono">${fmtD(o.est_close)}</td>
-        <td class="mono">${fmtD(o.modified_on||o.crm_created)}</td></tr>`;
+        <td class="mono">${fmtD(o.modified_on||o.crm_created)}</td>
+        <td>${act}</td></tr>`;
     });
   });
   $("pipeTable").innerHTML = h;
@@ -1850,6 +1856,65 @@ async function renewalToLead(id){
   });
   if(d){ await qSet(id,{renewal_lead_created:true}); toast(q.company+" renewal lead created — on your board"); }
 }
+/* ---- move pipeline opportunities to Quotes (license / one-off deals) ---- */
+const looksLicense = s => /licen|365|renew|subscript|manageengine/i.test(s||"");
+async function moveOppToQuote(crmId){
+  const o = crmOpps.find(x=>x.crm_id===crmId); if(!o) return;
+  if(!confirm(`Move "${o.topic||o.account}" to Quotes?\nIt leaves the pipeline and lives in the Quotes tab from now on (Sent → Chasing → PO → Payment → Paid).`)) return;
+  const lic = looksLicense((o.topic||"")+" "+(o.product||""));
+  const t = todayStr();
+  const rec = {
+    company: o.account||"—", company_key: o.account_key||nameKey(o.account||""),
+    description: o.topic||o.product||"Quotation",
+    value_aed: Number(o.est_revenue)||null,
+    sent_on: t, status:"Sent", is_license: lic,
+    renewal_date: lic? addDays(t,365):null,
+    next_followup: addDays(t,3),
+    crm_id: o.crm_id,
+    notes: "Moved from pipeline"+(o.product? " · "+o.product:"")+(o.crm_stage? " · was "+o.crm_stage:"")
+  };
+  const { data, error } = await sb.from("quotes").insert(rec).select().single();
+  if(error){ toast(error.code==="42703"? "Run migrate_v9_to_v10.sql first":"Save failed: "+error.message); return; }
+  quotes.unshift(data);
+  const { error:e2 } = await sb.from("crm_opps").update({ moved_to_quote:true }).eq("crm_id", crmId);
+  if(e2){ toast(e2.code==="42703"? "Quote created, but run migrate_v9_to_v10.sql to hide it from the pipeline":"Flag failed: "+e2.message); }
+  else o.moved_to_quote = true;
+  toast(`${o.account||"Opportunity"} → Quotes ✓${lic?" · license, renewal set +1y":""}`);
+  renderAll();
+}
+async function moveRowToQuote(id){
+  const r = rows.find(x=>x.id===id); if(!r) return;
+  if(!confirm(`Move ${r.company} to Quotes?\nCreates a quote and removes it from your working list.`)) return;
+  const lic = r.deal_type==="License" || looksLicense((r.product||"")+" "+(r.engagement_type||"")+" "+(r.notes||""));
+  const t = todayStr();
+  const rec = {
+    company: r.company, company_key: nameKey(r.company),
+    description: [r.product,r.engagement_type].filter(Boolean).join(" · ")||"Quotation",
+    value_aed: Number(r.est_value_aed)||null,
+    sent_on: t, status:"Sent", is_license: lic,
+    renewal_date: lic? addDays(t,365):null,
+    next_followup: addDays(t,3),
+    notes: r.notes||null
+  };
+  const { data, error } = await sb.from("quotes").insert(rec).select().single();
+  if(error){ toast(error.code==="42P01"? "Run migrate_v4_to_v5.sql first — quotes table missing":"Save failed: "+error.message); return; }
+  quotes.unshift(data); await ensureAccount(r.company);
+  const { error:e2 } = await sb.from("pipeline").delete().eq("id", id);
+  if(e2) toast("Quote created, but removing the lead failed: "+e2.message);
+  else rows = rows.filter(x=>x.id!==id);
+  closeDrawer();
+  toast(r.company+" → Quotes ✓");
+  renderAll(); setTab("quotes");
+}
+async function quoteBackToPipeline(id){
+  const q = quotes.find(x=>x.id===id); if(!q || !q.crm_id) return;
+  if(!confirm("Send this back to the pipeline and delete the quote?")) return;
+  const { error } = await sb.from("crm_opps").update({ moved_to_quote:false }).eq("crm_id", q.crm_id);
+  if(error){ toast("Failed: "+error.message); return; }
+  const o = crmOpps.find(x=>x.crm_id===q.crm_id); if(o) o.moved_to_quote = false;
+  await qDelete(id);
+  toast(q.company+" is back in the pipeline");
+}
 function quoteItemHTML(q){
   const t = todayStr();
   const due = isOpenQuote(q) && q.next_followup && q.next_followup <= t;
@@ -1871,6 +1936,7 @@ function quoteItemHTML(q){
       <button class="btn btn-ghost btn-danger" style="padding:4px 10px" onclick="qLost('${q.id}')">Lost</button>`:""}
     ${q.status==="Paid"&&q.is_license&&!q.renewal_lead_created? `<button class="btn" style="padding:4px 10px" onclick="renewalToLead('${q.id}')">→ Lead</button>`:""}
     ${q.renewal_lead_created? `<span class="badge b-money">lead ✓</span>`:""}
+    ${q.crm_id && isOpenQuote(q)? `<button class="btn btn-ghost" style="padding:4px 10px" title="Undo — send back to the pipeline and delete this quote" onclick="quoteBackToPipeline('${q.id}')">↩ Pipeline</button>`:""}
     <button class="btn btn-ghost" style="padding:4px 8px;color:var(--muted)" onclick="qDelete('${q.id}')">✕</button>
   </div>`;
 }
