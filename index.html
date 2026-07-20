@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1B2A33">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="My Pipeline">
 <title>My Pipeline</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -192,6 +197,17 @@ details.more .grid2{margin-top:12px}
 .setup-note{background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--radius);padding:16px;font-size:14px;margin-bottom:16px}
 .setup-note code{font-family:var(--font-mono);font-size:12.5px;background:#fff;padding:1px 5px;border-radius:4px}
 .loading{text-align:center;color:var(--muted);padding:40px 0}
+/* ---------- global search ---------- */
+.gsearch{position:relative;flex:0 1 220px;min-width:120px}
+.gsearch input{background:rgba(255,255,255,.12);border:none;color:#fff;font-size:13px;padding:6px 12px;border-radius:999px;width:100%}
+.gsearch input::placeholder{color:#B9C6CC}
+.gsearch input:focus{outline:2px solid #7BC4B3}
+.gs-results{position:absolute;top:115%;right:0;width:min(440px,92vw);max-height:60vh;overflow-y:auto;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,.25);z-index:80;padding:6px}
+.gs-item{display:flex;gap:8px;align-items:baseline;padding:7px 9px;border-radius:6px;cursor:pointer;font-size:13.5px;flex-wrap:wrap}
+.gs-item:hover{background:var(--soft)}
+.gs-item .k{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap}
+.gs-grp{font-family:var(--font-display);font-size:13px;font-weight:600;text-transform:uppercase;color:var(--muted);padding:6px 9px 2px}
+.tl-dot.note{background:var(--go-dark)}
 .hidden{display:none!important}
 </style>
 </head>
@@ -224,6 +240,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
 <header>
   <div class="hd-top">
     <h1>My <span>Pipeline</span> <small class="verTag" style="font-size:12px;color:#7BC4B3;font-weight:500;letter-spacing:.06em"></small></h1>
+    <div class="gsearch"><input id="gSearch" type="search" placeholder="Search everything &#8981;" autocomplete="off"><div id="gsResults" class="gs-results hidden"></div></div>
     <span class="chip" id="chipMove"></span>
     <span class="chip" id="chipValue"></span>
     <button class="signout" onclick="signOut()">Sign out</button>
@@ -289,6 +306,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <div class="grid2" style="gap:16px">
       <div class="panel"><h2>Value by stage</h2><div id="dashStage"></div></div>
       <div class="panel"><h2>Value by product</h2><div id="dashProd"></div></div>
+    </div>
+    <div class="grid2" style="gap:16px">
+      <div class="panel"><h2>Win rate by product — lifetime</h2><div id="dashWinProd"></div></div>
+      <div class="panel"><h2>Win rate by lead source — lifetime</h2><div id="dashWinSrc"></div></div>
     </div>
     <div class="panel"><h2 id="dashTblTitle">Opportunities</h2>
       <div class="tbl-wrap" style="border:none;border-radius:0"><table id="dashTable"></table></div>
@@ -373,6 +394,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
   <div id="view-add" class="hidden">
     <div class="panel">
       <h2>New lead — 20 seconds</h2>
+      <div id="dupWarn"></div>
       <div class="grid2">
         <div class="field"><label for="aCompany">Company *</label><input id="aCompany" type="text"></div>
         <div class="field"><label for="aEmail">Contact email</label><input id="aEmail" type="email" placeholder="name@company.com"></div>
@@ -401,7 +423,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
         Drop your D365 <b>Leads</b> and <b>Opportunities</b> exports here (both at once is fine) — they're recognised automatically, no column mapping.
         Rules: only <b>New</b> leads are importable (Qualified → archive); opportunities import only when <b>not Won / not Budget-lost</b> (those → archive). Nothing is written until you press a button.
       </p>
-      <p id="lastUploads" class="mono" style="font-size:12.5px;color:var(--muted);margin-bottom:14px"></p>
+      <p id="lastUploads" class="mono" style="font-size:12.5px;color:var(--muted);margin-bottom:8px"></p>
+      <p style="margin-bottom:14px"><button class="btn" onclick="backupAll()">&#11015; Backup all data (Excel)</button> <span style="font-size:12px;color:var(--muted)">every table in one workbook — do it monthly, keeps you covered if the Supabase project is ever lost</span></p>
       <div class="dropzone" id="dropzone">
         Drop files here, or
         <label style="display:inline;text-transform:none;font-size:14px;color:var(--go);text-decoration:underline;cursor:pointer;font-weight:600">
@@ -449,6 +472,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
   </div>
   <div class="field"><label for="eNext">Next step (what YOU will do)</label><input id="eNext" type="text"></div>
   <div class="field"><label for="eNotes">Notes</label><textarea id="eNotes" rows="3"></textarea></div>
+  <div class="field"><label for="eNoteNew">Note log — dated, append-only</label>
+    <div class="task-add"><input id="eNoteNew" type="text" placeholder="What happened? (Enter to log)"><button class="btn" onclick="addNoteFromEdit()">Log</button></div>
+    <div id="eNoteList" style="margin-top:8px"></div>
+  </div>
   <p class="mono" id="eMeta" style="font-size:12px;color:var(--muted)"></p>
   <div id="eCross" style="margin:8px 0 2px"></div>
   <div class="drawer-foot">
@@ -469,10 +496,14 @@ const SUPABASE_ANON_KEY = "sb_publishable_uQYI6KyP_7VeDoaT8mB-2w_v7p-6VXR"; // S
     <div class="field"><label for="tlIndustry">Industry</label><select id="tlIndustry" onchange="saveIndustry()"></select></div>
   </div>
   <div id="tlCross" style="margin-bottom:14px"></div>
-  <div class="task-add" style="margin-bottom:16px">
+  <div class="task-add" style="margin-bottom:10px">
     <input id="tlTask" type="text" placeholder="Quick task for this company…">
     <input id="tlTaskDue" type="date">
     <button class="btn btn-go" onclick="addTaskFromTimeline()">Add</button>
+  </div>
+  <div class="task-add" style="margin-bottom:16px">
+    <input id="tlNote" type="text" placeholder="Log a dated note for this company…">
+    <button class="btn" onclick="addNoteFromTimeline()">Log note</button>
   </div>
   <div id="tlBody"></div>
 </div>
@@ -502,8 +533,10 @@ function nameKey(s){
   s = String(s||"").toLowerCase().replace(/\u00ad/g,"").replace(/&/g," and ").replace(/[^a-z0-9 ]/g,"");
   return s.split(/\s+/).filter(t=>t && !NAME_SUFFIX.has(t)).join(" ");
 }
+const TYPO_FIXES = [[/cybersecurtiy/gi,"Cybersecurity"],[/copilit/gi,"Copilot"],[/micorsoft|mircosoft/gi,"Microsoft"]];
+const fixTypos = s => { if(!s) return s; let out = String(s); TYPO_FIXES.forEach(([re,ok])=>{ out = out.replace(re,ok); }); return out; };
 function catsOf(product, topic){
-  const p=(product||"").toLowerCase(), t=(topic||"").toLowerCase(), out=[];
+  const p=fixTypos(product||"").toLowerCase(), t=fixTypos(topic||"").toLowerCase(), out=[];
   if(p.includes("e-invoicing")||p.includes("zatca")||/e-?invoic|zatca/.test(t)) out.push("E-Invoicing");
   if(p.includes("business central")||p.includes("dynamics nav")||p.includes("-bc")) out.push("D365 BC / NAV");
   if(p.includes("dynamics gp")||/\bgp\b/.test(t)) out.push("Dynamics GP");
@@ -531,7 +564,7 @@ let sb = null, rows = [], tab = "today", pipeFilter = "open", editId = null, syn
 let tasksRows = [], accounts = [], crmOpps = [], accountsByKey = new Map(), tlKey = null, tgCat = "All";
 let todayFilter = "all", pipeSource = "crm", crmFilter = "open", dashFilter = "open";
 let inboxRows = [], ibFilter = "open";
-let quotes = [], qFilter = "open", commitments = [], cFilter = "chase";
+let quotes = [], qFilter = "open", commitments = [], cFilter = "chase", notesRows = [];
 let tgMode = "gaps", rnWindow = 90, settings = new Map();
 const RENEWAL_PROB = 0.8;
 const getSetting = (k,d) => settings.has(k)? Number(settings.get(k)) : d;
@@ -547,7 +580,7 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v12.2";
+const APP_VERSION = "v13.0";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -645,7 +678,7 @@ async function fetchAll(table, orderCol){
   for(;;){
     const { data, error } = await sb.from(table).select("*").order(orderCol,{ascending:false}).range(from, from+999);
     if(error){
-      if(error.code==="42P01") toast(table+" table missing — run migrate_v2_to_v3.sql in Supabase");
+      if(error.code==="42P01"){ const TABLE_MIG={crm_opps:"migrate_v2_to_v3.sql",inbox:"migrate_v3_to_v4.sql",quotes:"migrate_v4_to_v5.sql",commitments:"migrate_v4_to_v5.sql",app_settings:"migrate_v8_to_v9.sql",notes:"migrate_v10_to_v11.sql"}; toast(table+" table missing — run "+(TABLE_MIG[table]||"its migration")+" in Supabase"); }
       else toast(table+" load failed: "+error.message);
       return out;
     }
@@ -656,15 +689,17 @@ async function fetchAll(table, orderCol){
   return out;
 }
 async function loadRows(){
-  const [p,t,a,o,ib,q,cm,st] = await Promise.all([
+  const [p,t,a,o,ib,q,cm,st,nt] = await Promise.all([
     fetchAll("pipeline","created_at"), fetchAll("tasks","created_at"),
     fetchAll("accounts","created_at"), fetchAll("crm_opps","crm_created"),
     fetchAll("inbox","captured_at"), fetchAll("quotes","created_at"),
-    fetchAll("commitments","created_at"), fetchAll("app_settings","key")
+    fetchAll("commitments","created_at"), fetchAll("app_settings","key"),
+    fetchAll("notes","created_at")
   ]);
-  rows = p; tasksRows = t; accounts = a; crmOpps = o; inboxRows = ib; quotes = q; commitments = cm;
+  rows = p; tasksRows = t; accounts = a; crmOpps = o; inboxRows = ib; quotes = q; commitments = cm; notesRows = nt;
   settings = new Map((st||[]).map(x=>[x.key, x.value]));
   accountsByKey = new Map(accounts.map(x=>[x.name_key, x]));
+  if($("lastUploads")) $("lastUploads").innerHTML = lastUploadsHTML();
   renderAll();
 }
 
@@ -952,6 +987,27 @@ function renderDash(){
   });
   $("dashTable").innerHTML = h;
   $("dashTotals").textContent = `${list.length} opportunities · ${fmtAED(total)}` + (top.length>cap? ` · showing top ${cap} by value — use filters to narrow`:"");
+  renderWinRates();
+}
+function renderWinRates(){
+  if(!$("dashWinProd")) return;
+  const agg = keyFn => {
+    const m = new Map();
+    crmOpps.forEach(o=>{
+      const won = o.status==="Won", lost = (o.status||"").startsWith("Lost");
+      if(!won && !lost) return;
+      const k = fixTypos(String(keyFn(o)||"")).trim(); if(!k) return;
+      const d = m.get(k)||{w:0,l:0}; won? d.w++ : d.l++; m.set(k,d);
+    });
+    return [...m.entries()].filter(([,d])=>d.w+d.l>=3)
+      .map(([k,d])=>({k, pct:Math.round(100*d.w/(d.w+d.l)), n:d.w+d.l, w:d.w}))
+      .sort((a,b)=>b.pct-a.pct || b.n-a.n).slice(0,10);
+  };
+  const bar = list => list.map(x=>`<div class="bar-row"><span class="bar-l" title="${esc(x.k)}">${esc(x.k)}</span>
+    <span class="bar-track"><span class="bar-fill" style="width:${x.pct}%"></span></span>
+    <span class="bar-v">${x.pct}% · ${x.w}/${x.n}</span></div>`).join("") || `<div class="empty">Needs at least 3 closed deals per group.</div>`;
+  $("dashWinProd").innerHTML = bar(agg(o=>o.product));
+  $("dashWinSrc").innerHTML = bar(agg(o=>o.lead_source));
 }
 
 /* ================= ADD ================= */
@@ -991,6 +1047,7 @@ function openDrawer(id){
     const f = $(id).closest(".field"); if(f) f.classList.toggle("hidden", won);
   });
   $("eCross").innerHTML = crossSellHTML(nameKey(r.company));
+  $("eNoteNew").value = ""; renderNoteList();
   $("eMeta").textContent = `created ${fmtD(r.created_at)} · last touch ${fmtD(r.last_touch)}` + (r.crm_status==="in_crm"?` · ✔ in CRM (${r.crm_topic||"matched"})`:(r.crm_status==="not_in_crm"?" · not in CRM":""));
   $("overlay").classList.add("open"); $("drawer").classList.add("open");
 }
@@ -1058,6 +1115,19 @@ document.addEventListener("DOMContentLoaded", ()=>{
   d.addEventListener("dragover", e=>{e.preventDefault(); d.classList.add("drag");});
   d.addEventListener("dragleave", ()=>d.classList.remove("drag"));
   d.addEventListener("drop", e=>{e.preventDefault(); d.classList.remove("drag"); handleFiles(e.dataTransfer.files);});
+  $("gSearch").addEventListener("input", renderGSearch);
+  $("gSearch").addEventListener("keydown", e=>{ if(e.key==="Escape"){ $("gsResults").classList.add("hidden"); e.target.blur(); } });
+  document.addEventListener("click", e=>{ if(!e.target.closest(".gsearch")) $("gsResults").classList.add("hidden"); });
+  $("eNoteNew").addEventListener("keydown", e=>{ if(e.key==="Enter") addNoteFromEdit(); });
+  $("tlNote").addEventListener("keydown", e=>{ if(e.key==="Enter") addNoteFromTimeline(); });
+  $("aCompany").addEventListener("input", checkDupLead);
+  try{ /* PWA: inline manifest so the app installs to a phone home screen */
+    const icon = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#1B2A33"/><text x="50" y="66" font-size="40" font-family="sans-serif" font-weight="700" text-anchor="middle" fill="#7BC4B3">MP</text></svg>');
+    const manifest = { name:"My Pipeline", short_name:"Pipeline", start_url: location.href.split("#")[0], display:"standalone", background_color:"#E9EDEF", theme_color:"#1B2A33", icons:[{src:icon, sizes:"any", type:"image/svg+xml", purpose:"any"}] };
+    const mLink = document.createElement("link"); mLink.rel = "manifest";
+    mLink.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type:"application/manifest+json"}));
+    document.head.appendChild(mLink);
+  }catch(e){}
   boot();
 });
 function fmtSheetDate(v){
@@ -1073,10 +1143,14 @@ function parseFileDate(name){
   return `${m[3]}-${P(m[1])}-${P(m[2])}`;
 }
 function lastUploadsHTML(){
-  let o=null,l=null;
-  try{ o=JSON.parse(localStorage.getItem("sync_last_opps")||"null"); l=JSON.parse(localStorage.getItem("sync_last_leads")||"null"); }catch(e){}
+  const read = k => {
+    let v = settings.get("sync_last_"+k);
+    if(v==null){ try{ v = localStorage.getItem("sync_last_"+k); }catch(e){} }
+    if(typeof v==="string"){ try{ v = JSON.parse(v); }catch(e){ v = null; } }
+    return v;
+  };
   const f=x=>x&&x.date? fmtD(x.date)+" "+String(x.date).slice(0,4) : "never";
-  return `Last upload — Opportunities: <b>${f(o)}</b> · Leads: <b>${f(l)}</b>`;
+  return `Last upload — Opportunities: <b>${f(read("opps"))}</b> · Leads: <b>${f(read("leads"))}</b>`;
 }
 let syncFiles = [];
 async function handleFiles(files){
@@ -1106,7 +1180,11 @@ async function handleFiles(files){
     const kind = headers.some(h=>/^\(do not modify\) opportunity$/i.test(h)) ? "opps"
                : headers.some(h=>/^\(do not modify\) lead$/i.test(h)) ? "leads" : "other";
     const fd = parseFileDate(f.name);
-    if(kind!=="other" && fd) localStorage.setItem("sync_last_"+kind, JSON.stringify({date:fd, file:f.name, at:new Date().toISOString()}));
+    if(kind!=="other" && fd){
+      const upInfo = {date:fd, file:f.name, at:new Date().toISOString()};
+      try{ localStorage.setItem("sync_last_"+kind, JSON.stringify(upInfo)); }catch(e){}
+      if(sb) saveSetting("sync_last_"+kind, JSON.stringify(upInfo));
+    }
     syncFiles.push({name:f.name, kind, headers, rows:rows2, filedate:fd});
     if(kind==="other"){
       rows2.forEach(r=>syncRows.push(r));
@@ -1195,8 +1273,8 @@ async function importOpps2(){
     if(!accMap.has(key)) accMap.set(key, account);
     recs.push({
       crm_id: id, account, account_key: key,
-      topic: tC? (String(r[tC]).trim()||null):null,
-      product: pC? (String(r[pC]).trim()||null):null,
+      topic: tC? (fixTypos(String(r[tC]).trim())||null):null,
+      product: pC? (fixTypos(String(r[pC]).trim())||null):null,
       crm_stage: sC? (String(r[sC]).trim()||null):null,
       status: stC? mapCrmStatus(r[stC]):null,
       est_revenue: rC && r[rC]!=="" ? (Number(r[rC])||null):null,
@@ -1470,6 +1548,9 @@ function fillTimeline(){
   commitments.filter(c=>c.company_key===key).forEach(c=>{
     ev.push({d:c.requested_on||c.created_at, txt:`${c.who} owes: ${c.outcome} (${c.status}${c.chase_count?` · chased ×${c.chase_count}`:""})`, k:c.status==="open"?"crm":"done"});
   });
+  notesRows.filter(n=>n.company_key===key).forEach(n=>{
+    ev.push({d:n.created_at, txt:`Note: ${n.body}`, k:"note"});
+  });
   ev.sort((a,b)=> new Date(b.d)-new Date(a.d));
   const my = crmOpps.filter(o=>o.account_key===key);
   const won = my.filter(o=>o.status==="Won").length, open = my.filter(o=>o.status==="In Progress"||o.status==="On Hold").length;
@@ -1581,8 +1662,8 @@ async function importOpps(){
     if(!accMap.has(key)) accMap.set(key, account);
     recs.push({
       crm_id: id, account, account_key: key,
-      topic: tC? (String(r[tC]).trim()||null):null,
-      product: pC? (String(r[pC]).trim()||null):null,
+      topic: tC? (fixTypos(String(r[tC]).trim())||null):null,
+      product: pC? (fixTypos(String(r[pC]).trim())||null):null,
       crm_stage: sC? (String(r[sC]).trim()||null):null,
       status: stC? mapCrmStatus(r[stC]):null,
       est_revenue: rC && r[rC]!=="" ? (Number(r[rC])||null):null,
@@ -1741,6 +1822,9 @@ function doNowItems(){
     else if(q.next_followup && q.next_followup <= t)
       items.push({t:"quote", id:q.id, co:q.company, what:(q.description||"quotation")+" — follow up",
                   val:q.value_aed, why:"QUOTE FOLLOW-UP DUE", bcls:"b-amber", sc:(Number(q.value_aed)||1000)*0.8});
+    else if((q.status==="Sent"||q.status==="Chasing") && q.sent_on && q.sent_on <= addDays(t,-21))
+      items.push({t:"quote", id:q.id, co:q.company, what:(q.description||"quotation")+" — "+daysSince(q.sent_on)+"d old, decide: push or drop",
+                  val:q.value_aed, why:"QUOTE AGEING", bcls:"b-red", sc:(Number(q.value_aed)||1000)*0.85});
     if(q.is_license && q.renewal_date && !q.renewal_lead_created && q.renewal_date <= addDays(t,60))
       items.push({t:"quote", id:q.id, co:q.company, what:"license renews "+fmtD(q.renewal_date)+" — open next-year lead",
                   val:q.value_aed, why:q.renewal_date<=addDays(t,30)?"RENEWAL <30D":"RENEWAL <60D",
@@ -1755,7 +1839,7 @@ function doNowItems(){
                 val:null, why: overdueProm? `PROMISE OVERDUE ${daysSince(c.promised_on)}D` : (dec? "DECISION BLOCKED":"CHASE TODAY"),
                 bcls: overdueProm||dec? "b-red":"b-amber", sc: (dec? 8e8:5e8) + (daysSince(c.promised_on||c.requested_on)||0)*1e5});
   });
-  return items.sort((a,b)=>b.sc-a.sc).slice(0,10);
+  return items.filter(x=>!isSnoozed(x)).sort((a,b)=>b.sc-a.sc).slice(0,10);
 }
 function doNowHTML(){
   const items = doNowItems();
@@ -1767,6 +1851,7 @@ function doNowHTML(){
       <span class="dn-what">${esc(x.what)}</span>
       <span class="badge ${x.bcls}">${esc(x.why)}</span>
       ${x.t==="crm"? `<button class="btn btn-go" style="padding:4px 12px" onclick="event.stopPropagation();trackOpp('${esc(x.id)}')">Track</button>`:""}
+      <button class="btn btn-ghost" style="padding:2px 8px" title="Snooze — hide from Do Now until a date" onclick="event.stopPropagation();snoozeItem('${x.t}','${esc(String(x.id))}')">&#128164;</button>
       <span class="val mono" style="margin-left:auto">${fmtAED(x.val)}</span>
     </div>`).join("") + `<p style="font-size:12px;color:var(--muted);margin-top:8px">Value × stage probability × days untouched. Clear these ten and the day counts.</p></div>`;
 }
@@ -1930,6 +2015,7 @@ function quoteItemHTML(q){
     <span class="mono" style="font-size:12.5px">${fmtAED(q.value_aed)}</span>
     <span class="badge ${QUOTE_BADGE[q.status]||"b-grey"}">${esc(q.status)}</span>
     ${renewChip}
+    ${(q.status==="Sent"||q.status==="Chasing")&&q.sent_on&&daysSince(q.sent_on)>=14? `<span class="badge ${daysSince(q.sent_on)>=30?"b-red":"b-amber"}">&#9203; ${daysSince(q.sent_on)}d old</span>`:""}
     ${due? `<span class="badge b-red">FOLLOW-UP DUE</span>`:""}
     ${isOpenQuote(q)&&next? `<button class="btn btn-go" style="padding:4px 12px" onclick="qAdvance('${q.id}')">→ ${esc(next)}</button>`:""}
     ${isOpenQuote(q)? `<button class="btn" style="padding:4px 10px" onclick="qChase('${q.id}')">Chased +3d</button>
@@ -2311,12 +2397,126 @@ function renderScoreboard(){
   h += `</div>`;
   h += `<div style="margin:4px 0 2px;font-size:13px"><b>${fmtAED(Math.round(ytd))}</b> closed of ${fmtAED(ty)} — <b>${pct}%</b> · ${fmtAED(Math.max(0,Math.round(ty-ytd)))} to go with ${5-cq} quarter(s) incl. this one</div>
     <div class="bar-track" style="height:22px"><span class="bar-fill" style="width:${pct}%"></span></div>`;
+  const tNow = todayStr();
+  const qEndD = new Date(Number(tNow.slice(0,4)), cq*3, 0);
+  const weeksLeft = Math.max(0.5, Math.round((qEndD - new Date(tNow))/6048e5*10)/10);
+  const gapQ = Math.max(0, tq - closed[cq-1]);
+  const qMon = [1,2,3].map(k=>"2026-"+String((cq-1)*3+k).padStart(2,"0"));
+  const fcQ = crmOpps.filter(o=>o.forecast).reduce((sm,o)=>{ const ec = o.renewal_date||nextAnniversary(o.crm_created); return qMon.includes(String(ec||"").slice(0,7))? sm+(Number(o.est_revenue)||0)*RENEWAL_PROB : sm; },0);
+  const wOpenQ = crmOpps.filter(o=>isOpenStatus(o) && qMon.includes(String(o.est_close||"").slice(0,7)))
+    .reduce((sm,o)=>sm+(Number(o.est_revenue)||0)*Math.max(parseInt(o.crm_stage)||5,1)/100,0) + fcQ;
+  const onPace = closed[cq-1] + wOpenQ >= tq;
+  h += `<div style="margin-top:10px;font-size:13px"><span class="badge ${onPace?"b-money":"b-red"}">${onPace?"ON PACE":"OFF PACE"}</span>
+    Q${cq}: ${fmtAED(Math.round(gapQ))} still to close · ~${weeksLeft} week(s) left &rarr; needs <b>${fmtAED(Math.round(gapQ/Math.max(weeksLeft,0.5)))}/week</b> · weighted open + forecasted renewals landing this quarter: <b>${fmtAED(Math.round(wOpenQ))}</b></div>`;
   $("dashScore").innerHTML = h;
   $("scoreInputs").innerHTML = [
     ["actual_q1_2026","Q1 actual"],["actual_q2_2026","Q2 actual"],["actual_q3_2026","Q3 actual (blank = auto)"],["actual_q4_2026","Q4 actual (blank = auto)"],
     ["target_quarter_2026","Quarterly target"],["target_year_2026","Yearly target"]
   ].map(([k,l])=>`<div style="flex:1;min-width:150px"><label style="font-size:10.5px">${l}</label>
     <input type="number" step="0.01" value="${settings.get(k)!=null? settings.get(k):""}" onchange="saveSetting('${k}', this.value===''? null : Number(this.value)).then(ok=>{if(ok){toast('Saved');renderDash();}})"></div>`).join("");
+}
+
+/* ================= GLOBAL SEARCH ================= */
+function gsGo(kind, id, key, name){
+  $("gsResults").classList.add("hidden"); $("gSearch").value = "";
+  if(kind==="pipe"){ openDrawer(id); return; }
+  if(kind==="quote"){ setTab("quotes"); return; }
+  if(kind==="commit"){ setTab("chase"); return; }
+  openTimeline(key, name);
+}
+function renderGSearch(){
+  const q = $("gSearch").value.trim().toLowerCase(), box = $("gsResults");
+  if(q.length < 2){ box.classList.add("hidden"); return; }
+  const hit = v => String(v||"").toLowerCase().includes(q);
+  const out = [];
+  const grp = (title, items) => { if(items.length) out.push(`<div class="gs-grp">${title}</div>`, ...items); };
+  grp("Working list", rows.filter(r=>hit(r.company)||hit(r.product)||hit(r.notes)).slice(0,6).map(r=>
+    `<div class="gs-item" onclick="gsGo('pipe','${r.id}')"><b>${esc(r.company)}</b><span>${esc(r.stage)}${r.product?" · "+esc(r.product):""}</span><span class="k">${fmtAED(r.est_value_aed)}</span></div>`));
+  grp("CRM opportunities", crmOpps.filter(o=>hit(o.account)||hit(o.topic)||hit(o.product)).slice(0,8).map(o=>
+    `<div class="gs-item" onclick="gsGo('tl',null,'${String(o.account_key||"").replace(/'/g,"\\'")}','${esc(o.account||"").replace(/'/g,"\\'")}')"><b>${esc(o.account||"—")}</b><span>${esc(o.topic||o.product||"")}</span><span class="k">${esc(o.status||"")}</span></div>`));
+  grp("Quotes", quotes.filter(x=>hit(x.company)||hit(x.description)).slice(0,5).map(x=>
+    `<div class="gs-item" onclick="gsGo('quote')"><b>${esc(x.company)}</b><span>${esc(x.description||"")}</span><span class="k">${esc(x.status)}</span></div>`));
+  grp("Chase", commitments.filter(c=>hit(c.who)||hit(c.outcome)||hit(c.company)).slice(0,5).map(c=>
+    `<div class="gs-item" onclick="gsGo('commit')"><b>${esc(c.who)}</b><span>${esc(c.outcome)}</span><span class="k">${esc(c.status)}</span></div>`));
+  const seen = new Set(crmOpps.filter(o=>hit(o.account)).map(o=>o.account_key));
+  grp("Accounts", accounts.filter(a=>hit(a.name) && !seen.has(a.name_key)).slice(0,5).map(a=>
+    `<div class="gs-item" onclick="gsGo('tl',null,'${String(a.name_key).replace(/'/g,"\\'")}','${esc(a.name).replace(/'/g,"\\'")}')"><b>${esc(a.name)}</b><span class="k">${esc(a.country||"")}</span></div>`));
+  box.innerHTML = out.join("") || `<div class="gs-item" style="cursor:default;color:var(--muted)">No matches.</div>`;
+  box.classList.remove("hidden");
+}
+
+/* ================= DO NOW SNOOZE ================= */
+const snoozeKey = (t,id) => "snooze:"+t+":"+id;
+const isSnoozed = it => { const v = settings.get(snoozeKey(it.t,it.id)); return v && String(v) > todayStr(); };
+async function snoozeItem(t,id){
+  const until = prompt("Snooze until (YYYY-MM-DD) — hidden from Do Now till then:", addDays(todayStr(),7));
+  if(until==null) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(until.trim())){ toast("Use YYYY-MM-DD"); return; }
+  if(await saveSetting(snoozeKey(t,id), until.trim())){ toast("Snoozed until "+fmtD(until.trim())); renderToday(); renderHeader(); }
+}
+
+/* ================= NOTES LOG ================= */
+async function addNote(company, body){
+  const rec = { company, company_key: nameKey(company), body };
+  const { data, error } = await sb.from("notes").insert(rec).select().single();
+  if(error){ toast(error.code==="42P01"? "Run migrate_v10_to_v11.sql first — notes table missing":"Save failed: "+error.message); return null; }
+  notesRows.unshift(data); return data;
+}
+async function delNote(id){
+  const { error } = await sb.from("notes").delete().eq("id", id);
+  if(error){ toast("Delete failed: "+error.message); return; }
+  notesRows = notesRows.filter(x=>x.id!==id);
+  if(editId) renderNoteList();
+  if(tlKey) fillTimeline();
+}
+function noteItemHTML(n){
+  return `<div class="tl-item"><span class="tl-d">${fmtD(n.created_at)}</span><span class="tl-dot note"></span><span style="flex:1">${esc(n.body)}</span>
+    <button class="btn btn-ghost" style="padding:0 6px;color:var(--muted)" onclick="delNote('${n.id}')" aria-label="delete note">&#10005;</button></div>`;
+}
+function renderNoteList(){
+  if(!editId || !$("eNoteList")) return;
+  const r = rows.find(x=>x.id===editId); if(!r) return;
+  const key = nameKey(r.company);
+  const list = notesRows.filter(n=>n.company_key===key).slice(0,15);
+  $("eNoteList").innerHTML = list.map(noteItemHTML).join("") || `<div style="font-size:12.5px;color:var(--muted)">No notes yet — one line after every touch beats a perfect memory.</div>`;
+}
+async function addNoteFromEdit(){
+  const body = $("eNoteNew").value.trim(); if(!body){ toast("Write the note first"); return; }
+  const r = rows.find(x=>x.id===editId); if(!r) return;
+  if(await addNote(r.company, body)){ $("eNoteNew").value=""; toast("Noted"); renderNoteList(); }
+}
+async function addNoteFromTimeline(){
+  const body = $("tlNote").value.trim(); if(!body){ toast("Write the note first"); return; }
+  const acc = accountsByKey.get(tlKey);
+  if(await addNote(acc? acc.name : $("tlTitle").textContent, body)){ $("tlNote").value=""; toast("Noted"); fillTimeline(); }
+}
+
+/* ================= DUPLICATE WARNING (Add lead) ================= */
+function checkDupLead(){
+  const box = $("dupWarn"); if(!box) return;
+  const key = nameKey($("aCompany").value);
+  if(!key){ box.innerHTML=""; return; }
+  const mine = rows.filter(r=>nameKey(r.company)===key);
+  const crm = crmOpps.filter(o=>o.account_key===key);
+  if(!mine.length && !crm.length){ box.innerHTML=""; return; }
+  const won = crm.filter(o=>o.status==="Won").length, open = crm.filter(isOpenStatus).length;
+  const parts = [];
+  if(mine.length) parts.push(`already on your board (${mine.map(r=>esc(r.stage)).join(", ")})`);
+  if(crm.length) parts.push(`${crm.length} CRM opp(s) · ${won} won · ${open} open`);
+  box.innerHTML = `<div class="setup-note" style="margin:0 0 14px;padding:10px 14px">&#9888; <b>Existing history:</b> ${parts.join(" · ")}
+    <button class="btn" style="padding:3px 10px;margin-left:6px" onclick="openTimeline('${key.replace(/'/g,"\\'")}', $('aCompany').value)">View timeline</button></div>`;
+}
+
+/* ================= BACKUP ================= */
+function backupAll(){
+  const wb = XLSX.utils.book_new();
+  const add = (name, data) => { if(data && data.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), name.slice(0,31)); };
+  add("pipeline", rows); add("tasks", tasksRows); add("accounts", accounts); add("crm_opps", crmOpps);
+  add("inbox", inboxRows); add("quotes", quotes); add("commitments", commitments); add("notes", notesRows);
+  add("app_settings", [...settings.entries()].map(([key,value])=>({key, value: (value!=null && typeof value==="object")? JSON.stringify(value) : value})));
+  if(!wb.SheetNames.length){ toast("Nothing to back up yet"); return; }
+  XLSX.writeFile(wb, "my-pipeline-backup-"+todayStr()+".xlsx");
+  toast("Backup downloaded — keep it somewhere safe");
 }
 </script>
 </body>
