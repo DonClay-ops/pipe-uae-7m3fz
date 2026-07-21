@@ -580,7 +580,7 @@ const COMMIT_CATS = ["Deliverable","Decision","Approval","Information","Payment"
 const addDays = (dateStr, n) => { const d = dateStr? new Date(dateStr) : new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 const isOpenQuote = q => q.status!=="Paid" && q.status!=="Lost";
 const INDUSTRIES = ["Unknown","Construction & Real Estate","Manufacturing","Trading & Distribution","Retail & E-commerce","F&B & Hospitality","Healthcare & Pharma","Education","Government & Semi-Gov","Financial Services","Logistics & Shipping","Energy & Utilities","Professional Services","Technology","Media & Events","Automotive","Other"];
-const APP_VERSION = "v13.0";
+const APP_VERSION = "v13.1";
 const recType = r => (r.stage==="New"||r.stage==="Qualifying"||r.stage==="Nurture") ? "LEAD" : "OPP";
 const CRM_TO_STAGE = {1:"Qualifying",10:"Qualifying",30:"Demo",50:"Proposal",60:"Proposal",70:"Negotiation",80:"Negotiation",90:"Negotiation"};
 const CRM_STAGE_ORDER = ["01–Prospect","10-Discover","30-Demo","50-Propose","60-Evaluation","70-Shortlisted","80-Negotiate","90-Commit"];
@@ -1699,6 +1699,8 @@ async function captureItem(){
   if(!note){ toast("Say what it is — one line"); return; }
   const who = $("ibWho").value.trim() || null;
   const acct = $("ibAcct").value.trim() || null;
+  const dupe = inboxRows.find(x=>(x.status==="new"||x.status==="parked") && ibDupeKey(x)===ibDupeKey({source:$("ibSource").value, who, note}));
+  if(dupe){ toast("Already captured "+fmtDT(dupe.captured_at)+" — duplicate skipped"); return; }
   const rec = {
     source: $("ibSource").value, who, note, account: acct,
     priority: $("ibPriority").value,
@@ -1743,6 +1745,37 @@ function ibToLead(id){
   setTab("add"); toast("Prefilled — finish the lead form");
 }
 const fmtDT = d => d? new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}) + " " + new Date(d).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : "—";
+/* ---- inbox dedupe: the flagged-email Power Automate trigger re-fires when a message changes,
+   so the same capture (source + who + note) can land several times. Detect & clean. ---- */
+const ibDupeKey = x => [(x.source||"").toLowerCase().trim(), (x.who||"").toLowerCase().trim(), (x.note||"").toLowerCase().trim()].join("|");
+function inboxDupes(){
+  const groups = new Map();
+  inboxRows.filter(x=>x.status==="new"||x.status==="parked").forEach(x=>{
+    const k = ibDupeKey(x);
+    if(!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(x);
+  });
+  const extras = [];
+  groups.forEach(g=>{
+    if(g.length < 2) return;
+    g.sort((a,b)=> String(a.captured_at) < String(b.captured_at) ? -1 : 1);
+    extras.push(...g.slice(1));   /* keep the earliest capture, everything after is a dupe */
+  });
+  return extras;
+}
+async function ibCleanDupes(){
+  const extras = inboxDupes();
+  if(!extras.length){ toast("No duplicates found"); return; }
+  if(!confirm(`Delete ${extras.length} duplicate capture(s)?\nKeeps the earliest copy of each — nothing else is touched.`)) return;
+  const ids = extras.map(x=>x.id);
+  for(let i=0;i<ids.length;i+=100){
+    const { error } = await sb.from("inbox").delete().in("id", ids.slice(i,i+100));
+    if(error){ toast("Cleanup failed: "+error.message); return; }
+  }
+  inboxRows = inboxRows.filter(x=>!ids.includes(x.id));
+  toast(`${ids.length} duplicate(s) removed — earliest copies kept`);
+  renderInbox(); renderHeader();
+}
 function renderInbox(){
   if(!$("ibList")) return;
   const now = new Date().toISOString();
@@ -1761,9 +1794,16 @@ function renderInbox(){
     ibFilter==="parked" ? x.status==="parked" :
     (x.status==="done"||x.status==="converted"));
   list = list.slice().sort((a,b)=> (isDue(b)-isDue(a)) || ((b.priority==="High")-(a.priority==="High")) || (b.captured_at<a.captured_at?-1:1));
+  const extras = inboxDupes();
+  const extraIds = new Set(extras.map(x=>x.id));
+  const dupCount = new Map();
+  extras.forEach(x=>{ const k=ibDupeKey(x); dupCount.set(k,(dupCount.get(k)||0)+1); });
   const item = x => {
     const due = isDue(x);
     const co = x.who && accountsByKey.has(nameKey(x.who));
+    const k = ibDupeKey(x);
+    const dupBadge = extraIds.has(x.id)? `<span class="badge b-amber">DUPLICATE</span>`
+      : ((x.status==="new"||x.status==="parked") && dupCount.has(k)? `<span class="badge b-grey" title="Captured ${dupCount.get(k)+1} times — this is the original">&times;${dupCount.get(k)+1}</span>`:"");
     return `<div class="task-item" style="${due?"border-left:4px solid var(--red)":""}">
       <span class="k mono" style="font-size:11.5px;color:var(--muted);flex:0 0 92px">${fmtDT(x.captured_at)}</span>
       <span class="src-badge src-${esc((x.source||"Thought").replace(/\s/g,"-"))}">${esc(x.source||"?")}</span>
@@ -1771,6 +1811,7 @@ function renderInbox(){
       ${x.account? `<span class="t-co" onclick="openTimeline(nameKey('${esc(x.account).replace(/'/g,"\\'")}'),'${esc(x.account).replace(/'/g,"\\'")}')">${esc(x.account)}</span>` : (x.who&&co? `<span class="t-co" onclick="openTimeline(nameKey('${esc(x.who).replace(/'/g,"\\'")}'),'${esc(x.who).replace(/'/g,"\\'")}')">↳ timeline</span>`:"")}
       ${projChip(x.project_id)}
       <span class="t-title">${esc(x.note)}</span>
+      ${dupBadge}
       ${x.priority==="High"? `<span class="badge b-red">HIGH</span>`:""}
       ${x.remind_at? `<span class="badge ${due?"b-red":"b-grey"}">${due?"⏰ DUE — ":""}${fmtDT(x.remind_at)}</span>`:""}
       ${x.status==="new"? `
@@ -1785,7 +1826,8 @@ function renderInbox(){
       <button class="btn btn-ghost" style="padding:4px 8px;color:var(--muted)" onclick="ibDelete('${x.id}')">✕</button>
     </div>`;
   };
-  $("ibList").innerHTML = list.length? list.map(item).join("") : `<div class="empty">${ibFilter==="open"?"Inbox zero. Protect it.":"Nothing here."}</div>`;
+  const dupBanner = extras.length? `<div class="setup-note" style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">&#9888; <b>${extras.length} duplicate capture(s) detected</b> <span style="color:var(--muted)">same source + sender + note — the flagged-email flow re-fires when a message changes</span> <button class="btn" onclick="ibCleanDupes()">Clean up — keep earliest</button></div>` : "";
+  $("ibList").innerHTML = dupBanner + (list.length? list.map(item).join("") : `<div class="empty">${ibFilter==="open"?"Inbox zero. Protect it.":"Nothing here."}</div>`);
   const today = todayStr();
   const todays = inboxRows.filter(x=>String(x.captured_at||"").slice(0,10)===today);
   const bySrc = {};
